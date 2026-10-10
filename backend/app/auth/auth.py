@@ -26,7 +26,7 @@ from jwt import PyJWKClient # import PyJWKClient for Auth0 JWKS key lookup
 
 ##### load environment #####
 
-load_dotenv(Path(__file__).resolve().parent.parent / ".env") # load Auth0-related environment variables
+load_dotenv(Path(__file__).resolve().parent.parent.parent / ".env") # load Auth0-related environment variables
 
 
 

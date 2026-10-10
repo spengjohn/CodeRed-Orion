@@ -11,8 +11,12 @@ pip install -r requirements.txt
 flask --app app run --debug    # http://localhost:5000
 ```
 
+Auth0 settings (`AUTH0_DOMAIN`, `AUTH0_AUDIENCE`) go in `backend/.env`, which is never committed. Without it the app still runs; protected routes return 401.
+
 ## Files
 - `app/__init__.py`: creates the Flask app, turns on CORS, registers routes and Socket.IO.
+- `app/api/auth_routes.py`: `/api/public` (no login) and `/api/private-crib-data` (needs an Auth0 Bearer token).
+- `app/auth/auth.py`: Auth0 JWT validation; `@require_auth` protects a route.
 - `app/data/__init__.py`: data source switch. Comment out the dummy import and uncomment the Tiger Data import to go live.
 - `app/data/dummy.py`: generates realistic fake readings from the timestamp (same second gives the same values).
 - `app/data/format.py`: `to_reading()`, the one place that defines the JSON shape below.
