@@ -13,7 +13,7 @@ struct TimeseriesClient {
     const std::string& last_error() const;
 
 private:
-    Config cfg_{};
+    void* conn_ = nullptr;
     bool last_ok_ = false;
     std::string last_error_;
 };
