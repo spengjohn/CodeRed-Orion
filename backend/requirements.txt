@@ -2,3 +2,6 @@ flask
 flask-cors
 flask-socketio
 simple-websocket
+pyjwt[crypto]
+requests
+python-dotenv

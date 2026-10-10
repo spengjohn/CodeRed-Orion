@@ -1,4 +1,8 @@
-"""Live push: sends the latest reading to every connected browser once a seco"""
+"""Live push: sends the latest reading to every connected browser once a second.
+
+Frontend: io("http://localhost:5000").on("vitals", reading => ...)
+The payload is the same JSON as GET /api/readings/latest.
+"""
 
 import threading
 
