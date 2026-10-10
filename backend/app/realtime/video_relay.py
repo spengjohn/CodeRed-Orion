@@ -10,57 +10,81 @@ logger = logging.getLogger(__name__)
 # Global flag to control whether we broadcast frames to frontend
 streaming_active = False
 
-# 🔒 安全防護 3: Edge 通關密語 (由環境變數設定)
 EDGE_SECRET = os.getenv("EDGE_SECRET", "hackathon-secret")
 
 def _handle_edge_client(conn, addr):
     global streaming_active
-    buffer = ""
+    buffer = bytearray()
     authenticated = False
     logger.info(f"[Video Relay] Edge connected from {addr}")
     
-    while True:
-        try:
-            data = conn.recv(8192).decode('utf-8')
-            if not data:
-                break
-                
-            buffer += data
-            
-            # 🔒 安全防護 4: 避免記憶體塞爆 (OOM Crash)，限制 Buffer 最大 1MB
-            if len(buffer) > 1024 * 1024:
-                logger.warning(f"Buffer overflow from {addr}, dropping connection.")
-                break
+    
+    conn.settimeout(15.0)
 
-            while "\n" in buffer:
-                line, buffer = buffer.split("\n", 1)
+    try:
+        while True:
+            try:
                 
-                # 🔒 安全防護 5: 要求 Edge 先傳送密碼敲門
-                if not authenticated:
-                    if line.strip() == f"AUTH {EDGE_SECRET}":
-                        authenticated = True
-                        conn.sendall(b"AUTH_OK\n")
-                        logger.info(f"[Video Relay] Edge authenticated: {addr}")
-                    else:
-                        logger.warning(f"[Video Relay] Edge auth failed: {addr}")
-                        conn.sendall(b"AUTH_FAILED\n")
-                        return  # 密碼錯直接中斷連線
-                    continue
+                chunk = conn.recv(16384)
+                if not chunk:
+                    break
+                    
+                buffer.extend(chunk)
+                
+                
+                if len(buffer) > 2 * 1024 * 1024:
+                    logger.warning(f"[Video Relay] Buffer overflow from {addr} (>2MB), dropping connection.")
+                    break
 
-                # 已驗證，正常廣播影片
-                if streaming_active:
+                while b"\n" in buffer:
+                    newline_idx = buffer.find(b"\n")
+                    line_bytes = bytes(buffer[:newline_idx])
+                    del buffer[:newline_idx + 1]
+                    
+                    if not line_bytes:
+                        continue
+
                     try:
-                        frame_data = json.loads(line)
-                        socketio.emit("video_frame", frame_data)
-                    except json.JSONDecodeError:
-                        pass
-                        
-        except Exception as e:
-            logger.error(f"[Video Relay] Connection error: {e}")
-            break
-            
-    conn.close()
-    logger.info(f"[Video Relay] Edge disconnected {addr}")
+                        line = line_bytes.decode("utf-8").strip()
+                    except UnicodeDecodeError as decode_err:
+                        logger.warning(f"[Video Relay] Corrupted UTF-8 payload from {addr}: {decode_err}")
+                        continue
+                    
+                    if not line:
+                        continue
+
+                    
+                    if not authenticated:
+                        if line == f"AUTH {EDGE_SECRET}":
+                            authenticated = True
+                            conn.sendall(b"AUTH_OK\n")
+                            logger.info(f"[Video Relay] Edge authenticated: {addr}")
+                        else:
+                            logger.warning(f"[Video Relay] Edge auth failed: {addr}")
+                            conn.sendall(b"AUTH_FAILED\n")
+                            return  
+                        continue
+
+                    if streaming_active:
+                        try:
+                            frame_data = json.loads(line)
+                            socketio.emit("video_frame", frame_data)
+                        except json.JSONDecodeError:
+                            logger.debug("[Video Relay] Incomplete or invalid JSON frame, discarded.")
+                            pass
+
+            except socket.timeout:
+                logger.warning(f"[Video Relay] Connection timeout from {addr}")
+                break
+            except Exception as e:
+                logger.error(f"[Video Relay] Connection error: {e}")
+                break
+    finally:
+        try:
+            conn.close()
+        except Exception:
+            pass
+        logger.info(f"[Video Relay] Edge disconnected {addr}")
 
 def _tcp_server_loop(port):
     server = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
