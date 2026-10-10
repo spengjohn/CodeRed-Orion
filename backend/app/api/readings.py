@@ -9,7 +9,7 @@ from app.data import get_history, get_latest
 
 bp = Blueprint("readings", __name__, url_prefix="/api/readings")
 
-MAX_RANGE_S = 7 * 24 * 3600  # 7 days
+MAX_RANGE_S = 30 * 24 * 3600  # 7 days
 MAX_POINTS = 2000            # cap chart points per response
 
 
