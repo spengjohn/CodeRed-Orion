@@ -1,0 +1,15 @@
+#!/usr/bin/env bash
+set -euo pipefail
+
+ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+BUILD_DIR="${ROOT}/build"
+TARGET="edge"
+
+mkdir -p "${BUILD_DIR}"
+cd "${BUILD_DIR}"
+
+cmake ..
+cmake --build . --target "${TARGET}" -j"$(nproc 2>/dev/null || sysctl -n hw.ncpu)"
+
+echo "Running ./${TARGET}..."
+exec "./${TARGET}" "$@"
