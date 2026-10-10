@@ -4,24 +4,37 @@ set -euo pipefail
 ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 cd "${ROOT}"
 
+if [[ ! -f .env ]]; then
+  echo "Missing .env — copy env_template.txt to .env and fill in values." >&2
+  exit 1
+fi
+
+set -a
+source .env
+set +a
+
+if ! pkg-config --exists libpq; then
+  echo "libpq not found. Install libpq-dev (apt) or set PKG_CONFIG_PATH." >&2
+  exit 1
+fi
+
+if [[ -z "${TIGERDATA_URL:-}" ]]; then
+  echo "TIGERDATA_URL is empty in .env" >&2
+  exit 1
+fi
+
 g++ -std=c++17 \
   -Isrc -Isrc/hardware -Isrc/hardware/mlx90640 \
   src/main.cpp \
   src/config/Config.cpp \
-  src/hardware/ADS1115Driver.cpp \
-  src/hardware/CoralDriver.cpp \
   src/hardware/MLX90640Driver.cpp \
-  src/hardware/OV5647.cpp \
-  src/hardware/TfLunaDriver.cpp \
   src/hardware/mlx90640/MLX90640_API.cpp \
   src/hardware/mlx90640/MLX90640_LINUX_I2C_Driver.cpp \
   src/net/TimeseriesClient.cpp \
-  src/net/UplinkClient.cpp \
-  src/vision/BreathMonitor.cpp \
-  src/vision/CameraFusion.cpp \
   src/vision/ThermalRoiSampler.cpp \
   src/vitals/VitalsHub.cpp \
   -o edge \
+  $(pkg-config --cflags --libs libpq) \
   -lpthread \
   -lm
 

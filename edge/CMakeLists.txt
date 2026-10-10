@@ -8,17 +8,10 @@ set(CMAKE_EXPORT_COMPILE_COMMANDS ON)
 set(EDGE_SOURCES
     src/main.cpp
     src/config/Config.cpp
-    src/hardware/ADS1115Driver.cpp
-    src/hardware/CoralDriver.cpp
     src/hardware/MLX90640Driver.cpp
-    src/hardware/OV5647.cpp
-    src/hardware/TfLunaDriver.cpp
     src/hardware/mlx90640/MLX90640_API.cpp
     src/hardware/mlx90640/MLX90640_LINUX_I2C_Driver.cpp
     src/net/TimeseriesClient.cpp
-    src/net/UplinkClient.cpp
-    src/vision/BreathMonitor.cpp
-    src/vision/CameraFusion.cpp
     src/vision/ThermalRoiSampler.cpp
     src/vitals/VitalsHub.cpp
 )
@@ -32,4 +25,5 @@ target_include_directories(edge PRIVATE
 )
 
 find_package(Threads REQUIRED)
-target_link_libraries(edge PRIVATE Threads::Threads m)
+find_package(PostgreSQL REQUIRED)
+target_link_libraries(edge PRIVATE Threads::Threads m PostgreSQL::PostgreSQL)
