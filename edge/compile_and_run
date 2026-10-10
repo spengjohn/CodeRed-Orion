@@ -2,14 +2,16 @@
 set -euo pipefail
 
 ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
-BUILD_DIR="${ROOT}/build"
-TARGET="edge"
+cd "${ROOT}"
 
-mkdir -p "${BUILD_DIR}"
-cd "${BUILD_DIR}"
+g++ -std=c++17 \
+  -Isrc -Isrc/hardware -Isrc/hardware/mlx90640 \
+  src/main.cpp \
+  src/hardware/MLX90640Driver.cpp \
+  src/hardware/mlx90640/MLX90640_API.cpp \
+  src/hardware/mlx90640/MLX90640_LINUX_I2C_Driver.cpp \
+  -o edge \
+  -lpthread \
+  -lm
 
-cmake ..
-cmake --build . --target "${TARGET}" -j"$(nproc 2>/dev/null || sysctl -n hw.ncpu)"
-
-echo "Running ./${TARGET}..."
-exec "./${TARGET}" "$@"
+exec ./edge "$@"
