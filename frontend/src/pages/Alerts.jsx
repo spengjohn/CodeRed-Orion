@@ -70,7 +70,7 @@ function Alerts() {
           <h1>Alerts</h1>
         </div>
         <p>
-          Every alert the crib has raised. Each one also called the registered phone numbers.
+          Current saved alert history. 
         </p>
       </div>
 
@@ -115,7 +115,6 @@ function Alerts() {
                     <strong>{alertTitle(alert.description)}</strong>
                     <span className="muted">
                       {fmt.dateTime(alert.ts)} · {fmt.relative(alert.ts)}
-                      {alert.code != null && ` · code ${alert.code}`}
                     </span>
                     {alert.details.message && <span>{alert.details.message}</span>}
                     <Snapshot alert={alert} />

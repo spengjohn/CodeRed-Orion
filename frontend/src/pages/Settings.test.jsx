@@ -50,3 +50,28 @@ test('dark mode switch follows the system, then saves an explicit choice', () =>
   expect(toggle).not.toBeChecked()
   expect(document.documentElement).toHaveAttribute('data-theme', 'light')
 })
+
+test('temperature and time format switches pick between their two options', () => {
+  renderSettings()
+  const temp = screen.getByRole('switch', { name: 'Temperature unit' })
+  const time = screen.getByRole('switch', { name: 'Time format' })
+  const chips = () => screen.getByTestId('format-preview').querySelectorAll('code')
+  expect(temp).not.toBeChecked()
+  expect(time).not.toBeChecked()
+  expect(chips()).toHaveLength(3)
+  expect(chips()[0]).toHaveTextContent(/36\.8\s?°C/)
+  expect(chips()[1]).toHaveTextContent(/3\.60\s?kg/)
+  expect(chips()[2]).toHaveTextContent(/[AP]M/)
+
+  fireEvent.click(temp)
+  fireEvent.click(time)
+  expect(chips()[0]).toHaveTextContent(/98\.2\s?°F/)
+  expect(chips()[2]).not.toHaveTextContent(/[AP]M/)
+  expect(JSON.parse(localStorage.getItem(STORAGE_KEY))).toMatchObject({
+    tempUnit: 'F',
+    timeFormat: '24h',
+  })
+
+  fireEvent.click(temp)
+  expect(JSON.parse(localStorage.getItem(STORAGE_KEY))).toMatchObject({ tempUnit: 'C' })
+})

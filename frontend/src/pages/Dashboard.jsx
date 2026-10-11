@@ -84,12 +84,13 @@ function Dashboard() {
         <CribVideo now={now} onOfflineChange={setCameraOffline} />
 
         <div className="metrics">
+          {/* With no sensor data, the cards show only "--": no deltas, no baby. */}
           <MetricCard
             to="/analytics/temperature"
             tone="temp"
             name="Temp"
             value={fmt.tempParts(latest?.babyTempC)}
-            change={changeLine(change(readings, 'babyTempC'), fmt.tempChange)}
+            change={hasData && changeLine(change(readings, 'babyTempC'), fmt.tempChange)}
             sub={latest && `Room ${fmt.temp(latest.ambientTempC)}`}
           />
           <MetricCard
@@ -97,11 +98,13 @@ function Dashboard() {
             tone="activity"
             name="Activity"
             value={latest ? (latest.isMoving ? 'Moving' : 'Still') : []}
-            change={activityLine(currentActivity(readings, SNAPSHOT_INTERVAL_MS))}
+            change={hasData && activityLine(currentActivity(readings, SNAPSHOT_INTERVAL_MS))}
             visual={
-              <Suspense fallback={<span className="m-visual" />}>
-                <BabyMotion isMoving={Boolean(latest?.isMoving)} />
-              </Suspense>
+              hasData && (
+                <Suspense fallback={<span className="m-visual" />}>
+                  <BabyMotion isMoving={Boolean(latest?.isMoving)} />
+                </Suspense>
+              )
             }
           />
           <MetricCard
@@ -109,14 +112,17 @@ function Dashboard() {
             tone="weight"
             name="Weight"
             value={fmt.weightParts(latestStill?.babyWeightKg)}
-            change={changeLine(change(week.data, 'babyWeightKg', { excludeMoving: true }), fmt.weightChange)}
+            change={
+              hasData &&
+              changeLine(change(week.data, 'babyWeightKg', { excludeMoving: true }), fmt.weightChange)
+            }
           />
           <MetricCard
             to="/analytics/breathing"
             tone="breath"
             name="Breathing"
             value={latest ? [[String(latest.breathsPerMin), '/min']] : []}
-            change={changeLine(change(readings, 'breathsPerMin'), fmt.breathingChange)}
+            change={hasData && changeLine(change(readings, 'breathsPerMin'), fmt.breathingChange)}
           />
         </div>
       </div>

@@ -5,20 +5,15 @@ import { usePreferences } from '../preferences/context'
 import { useFormatters } from '../hooks/useFormatters'
 
 const OPTIONS = {
-  tempUnit: [
-    ['C', 'Celsius (°C)'],
-    ['F', 'Fahrenheit (°F)'],
-  ],
   weightUnit: [
     ['kg', 'Kilograms (kg)'],
     ['lb', 'Pounds (lb)'],
     ['lb_oz', 'Pounds and ounces (lb oz)'],
   ],
-  timeFormat: [
-    ['12h', '12-hour (2:30 PM)'],
-    ['24h', '24-hour (14:30)'],
-  ],
 }
+
+// Typical newborn readings for previewing the chosen units.
+const SAMPLE = { tempC: 36.8, weightKg: 3.6 }
 
 const DARK_QUERY = '(prefers-color-scheme: dark)'
 
@@ -48,7 +43,7 @@ function Settings() {
   const dark = preferences.theme === 'dark' || (preferences.theme === 'system' && systemDark)
 
   const select = (key, label, options) => (
-    <label className="setting">
+    <label className="setting select-row">
       <span>{label}</span>
       <select value={preferences[key]} onChange={(e) => setPreference(key, e.target.value)}>
         {options.map(([value, text]) => (
@@ -59,6 +54,25 @@ function Settings() {
       </select>
     </label>
   )
+
+  // A two-option setting as "left [switch] right"; checked picks the right one.
+  const toggle = (key, name, [leftValue, leftText], [rightValue, rightText]) => {
+    const right = preferences[key] === rightValue
+    return (
+      <label className="setting switch-row either-row">
+        <span className={right ? undefined : 'on'}>{leftText}</span>
+        <input
+          type="checkbox"
+          role="switch"
+          className="switch either"
+          aria-label={name}
+          checked={right}
+          onChange={(e) => setPreference(key, e.target.checked ? rightValue : leftValue)}
+        />
+        <span className={right ? 'on' : undefined}>{rightText}</span>
+      </label>
+    )
+  }
 
   return (
     <section className="page">
@@ -83,31 +97,35 @@ function Settings() {
               <span>Email</span>
               <strong>{user?.email}</strong>
             </div>
-            <p className="muted">Your sign-in is managed by Auth0 (demo account for now).</p>
           </section>
 
           <section className="settings-section">
             <h2>Appearance</h2>
-            <label className="setting switch-row">
-              <span>Dark mode</span>
+            <label className="setting switch-row either-row">
+              <span className={dark ? undefined : 'on'}>Light mode</span>
               <input
                 type="checkbox"
                 role="switch"
-                className="switch"
+                className="switch either"
+                aria-label="Dark mode"
                 checked={dark}
                 onChange={(e) => setPreference('theme', e.target.checked ? 'dark' : 'light')}
               />
+              <span className={dark ? 'on' : undefined}>Dark mode</span>
             </label>
           </section>
         </div>
 
         <section className="settings-section">
           <h2>Units &amp; time</h2>
-          {select('tempUnit', 'Temperature', OPTIONS.tempUnit)}
+          <p className="format-preview" data-testid="format-preview">
+            <code>{fmt.temp(SAMPLE.tempC)}</code>
+            <code>{fmt.weight(SAMPLE.weightKg)}</code>
+            <code>{fmt.time(previewTime)}</code>
+          </p>
+          {toggle('tempUnit', 'Temperature unit', ['C', 'Celsius (°C)'], ['F', 'Fahrenheit (°F)'])}
           {select('weightUnit', 'Weight', OPTIONS.weightUnit)}
-          {select('timeFormat', 'Time format', OPTIONS.timeFormat)}
-          <p className="muted">Preview: {fmt.dateTime(previewTime)}</p>
-          <p className="muted">Preferences are saved in this browser.</p>
+          {toggle('timeFormat', 'Time format', ['12h', '12-hour'], ['24h', '24-hour'])}
         </section>
       </div>
     </section>
