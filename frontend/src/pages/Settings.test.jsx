@@ -6,7 +6,7 @@ import Settings from './Settings'
 
 // react-router ships ESM-only dependencies Jest can't load; BackLink only needs Link.
 jest.mock('react-router', () => ({
-  Link: ({ to, children, ...props }) => (
+  Link: ({ to, children, viewTransition: _viewTransition, ...props }) => (
     <a href={to} {...props}>
       {children}
     </a>

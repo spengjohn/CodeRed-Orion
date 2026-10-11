@@ -69,10 +69,10 @@ function BabyMotion({ isMoving }) {
     resize()
 
     const reduceMotion = window.matchMedia?.('(prefers-reduced-motion: reduce)').matches
-    const clock = new THREE.Clock()
+    const start = performance.now()
     let frame
     const animate = () => {
-      const t = clock.getElapsedTime()
+      const t = (performance.now() - start) / 1000 // seconds since mount
       if (moving.current && !reduceMotion) {
         baby.rotation.x = Math.sin(t * 3) * 0.35 // rocking side to side
         baby.position.x = Math.sin(t * 0.8) * 0.4 // shuffling along the mattress

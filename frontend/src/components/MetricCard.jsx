@@ -29,7 +29,13 @@ function MetricCard({ to, tone, name, value, change, sub, visual }) {
   const parts = typeof value === 'string' ? [[value, '']] : value
 
   return (
-    <Link className="metric" to={to} viewTransition style={{ '--m': `var(--${tone})` }}>
+    // The analytics page shares this view-transition name, so the card expands into it.
+    <Link
+      className="metric"
+      to={to}
+      viewTransition
+      style={{ '--m': `var(--${tone})`, viewTransitionName: `metric-${tone}` }}
+    >
       <span className="m-top">
         <span className="m-icon">
           <svg viewBox="0 0 24 24" aria-hidden="true">

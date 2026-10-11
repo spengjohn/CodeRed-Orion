@@ -8,12 +8,14 @@ import RangePicker from './RangePicker'
 // Shared layout for the analytics pages: range picker, chart, and summary
 // stats for each series. Series with excludeMoving skip readings taken while
 // the child was moving when computing stats.
-function AnalyticsView({ title, description, series, unit, defaultRange = '24h' }) {
+// tone: the dashboard card's tone; the page shares its view-transition name so
+// the card expands into the page (and shrinks back on the Back link).
+function AnalyticsView({ title, description, series, unit, tone, defaultRange = '24h' }) {
   const [range, setRange] = useState(defaultRange)
   const { data, loading, error } = useReadings(range)
 
   return (
-    <section className="page">
+    <section className="page metric-page" style={{ '--m': `var(--${tone})`, viewTransitionName: `metric-${tone}` }}>
       <div className="page-head">
         <div className="title-row">
           <BackLink />

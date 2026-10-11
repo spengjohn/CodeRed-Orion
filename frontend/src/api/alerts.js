@@ -53,6 +53,6 @@ export async function getAlertSnapshot(id) {
   const res = await fetch(`${BASE_URL}/alerts/${id}/snapshot`, {
     headers: token ? { Authorization: `Bearer ${token}` } : {},
   })
-  if (!res.ok) throw Object.assign(new Error(`Snapshot ${id} failed: ${res.status}`), { status: res.status })
+  if (!res.ok) throw Object.assign(new Error('Snapshot unavailable'), { status: res.status })
   return URL.createObjectURL(await res.blob())
 }

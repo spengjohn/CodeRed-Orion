@@ -1,5 +1,5 @@
-import { lazy, Suspense } from 'react'
-import { BrowserRouter, Link, Route, Routes } from 'react-router'
+import { createBrowserRouter, Link, Outlet } from 'react-router'
+import { RouterProvider } from 'react-router/dom'
 import { useAuth } from './auth/context'
 import RequireAuth from './auth/RequireAuth'
 import AlertToasts from './components/AlertToasts'
@@ -8,16 +8,11 @@ import CatLogo from './components/CatLogo'
 import UserMenu from './components/UserMenu'
 import { useRouteColor } from './hooks/useRouteColor'
 import Alerts from './pages/Alerts'
+import * as analytics from './pages/analyticsRoutes'
 import Landing from './pages/Landing'
 import Dashboard from './pages/Dashboard'
 import Settings from './pages/Settings'
 import './App.css'
-
-// Analytics pages pull in the charting library, so load them on demand.
-const TemperatureAnalytics = lazy(() => import('./pages/TemperatureAnalytics'))
-const WeightAnalytics = lazy(() => import('./pages/WeightAnalytics'))
-const BreathingAnalytics = lazy(() => import('./pages/BreathingAnalytics'))
-const ActivityAnalytics = lazy(() => import('./pages/ActivityAnalytics'))
 
 // The logo takes a new color on each navigation, so this lives inside the router.
 function Header({ isAuthenticated }) {
@@ -35,32 +30,50 @@ function Header({ isAuthenticated }) {
   )
 }
 
-function App() {
+// Chrome around every page. Header and toasts use router hooks, so they render
+// inside the router as the root route's element.
+function AppLayout() {
   const { isAuthenticated } = useAuth()
 
   return (
-    <BrowserRouter>
+    <>
       <Header isAuthenticated={isAuthenticated} />
       <main>
-        <Suspense fallback={<CatLoader />}>
-          <Routes>
-            <Route path="/" element={<Landing />} />
-            <Route element={<RequireAuth />}>
-              <Route path="/dashboard" element={<Dashboard />} />
-              <Route path="/analytics/temperature" element={<TemperatureAnalytics />} />
-              <Route path="/analytics/weight" element={<WeightAnalytics />} />
-              <Route path="/analytics/breathing" element={<BreathingAnalytics />} />
-              <Route path="/analytics/activity" element={<ActivityAnalytics />} />
-              <Route path="/alerts" element={<Alerts />} />
-              <Route path="/settings" element={<Settings />} />
-            </Route>
-          </Routes>
-        </Suspense>
+        <Outlet />
       </main>
       {/* Emergency alert pop-ups, on every page while signed in. */}
       {isAuthenticated && <AlertToasts />}
-    </BrowserRouter>
+    </>
   )
+}
+
+// A data router (not <BrowserRouter>) because only RouterProvider runs
+// <Link viewTransition> navigations through document.startViewTransition.
+const router = createBrowserRouter([
+  {
+    element: <AppLayout />,
+    // Shown while a lazy page loads on a direct visit.
+    hydrateFallbackElement: <CatLoader />,
+    children: [
+      { path: '/', element: <Landing /> },
+      {
+        element: <RequireAuth />,
+        children: [
+          { path: '/dashboard', element: <Dashboard /> },
+          { path: '/analytics/temperature', lazy: analytics.temperature },
+          { path: '/analytics/weight', lazy: analytics.weight },
+          { path: '/analytics/breathing', lazy: analytics.breathing },
+          { path: '/analytics/activity', lazy: analytics.activity },
+          { path: '/alerts', element: <Alerts /> },
+          { path: '/settings', element: <Settings /> },
+        ],
+      },
+    ],
+  },
+])
+
+function App() {
+  return <RouterProvider router={router} />
 }
 
 export default App

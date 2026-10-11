@@ -16,6 +16,7 @@ function BreathingAnalytics() {
   return (
     <AnalyticsView
       title="Breathing"
+      tone="breath"
       description="Breaths per minute over time. Shaded areas mark movement."
       series={series}
       unit="bpm"

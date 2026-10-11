@@ -11,6 +11,7 @@ function TemperatureAnalytics() {
   return (
     <AnalyticsView
       title="Temperature"
+      tone="temp"
       description="Baby and ambient (room) temperature over time."
       series={series}
       unit={fmt.tempUnit}

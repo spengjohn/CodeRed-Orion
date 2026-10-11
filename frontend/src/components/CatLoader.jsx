@@ -3,7 +3,7 @@ import CatLogo from './CatLogo'
 
 // The loading screen: the 3×3 grid of cat tiles, centered in the viewport and
 // pulsing in a diagonal wave.
-function CatLoader({ size = 28, label = 'Loading…' }) {
+function CatLoader({ size = 48, label = 'Loading…' }) {
   return (
     <div className="cat-loader-screen" role="status">
       <div className="cat-loader" style={{ '--tile': `${size}px` }}>

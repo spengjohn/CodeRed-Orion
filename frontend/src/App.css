@@ -1370,4 +1370,42 @@
       transform: translateY(0) scale(1);
     }
   }
+
+  /* Metric card <-> analytics page: the card's box grows into the page (and back),
+     with the same easing as the timeline's alert pop-up. */
+  ::view-transition-group(metric-temp),
+  ::view-transition-group(metric-weight),
+  ::view-transition-group(metric-breath),
+  ::view-transition-group(metric-activity) {
+    animation-duration: 0.38s;
+    animation-timing-function: cubic-bezier(0.16, 1, 0.3, 1);
+    overflow: clip;
+    border-radius: calc(20px * var(--r));
+  }
+  /* Pin both snapshots to the top at their natural size instead of stretching them. */
+  ::view-transition-old(metric-temp),
+  ::view-transition-old(metric-weight),
+  ::view-transition-old(metric-breath),
+  ::view-transition-old(metric-activity),
+  ::view-transition-new(metric-temp),
+  ::view-transition-new(metric-weight),
+  ::view-transition-new(metric-breath),
+  ::view-transition-new(metric-activity) {
+    height: 100%;
+    object-fit: none;
+    object-position: top left;
+    animation-duration: 0.38s;
+  }
+  /* The morph is the entrance; skip the page's own slide-in so they don't stack. */
+  :active-view-transition .metric-page {
+    animation: none;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  ::view-transition-group(*),
+  ::view-transition-old(*),
+  ::view-transition-new(*) {
+    animation: none !important;
+  }
 }

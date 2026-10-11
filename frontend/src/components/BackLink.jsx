@@ -4,7 +4,7 @@ import { Link } from 'react-router'
 // than using history, so it works when the page was opened directly.
 function BackLink() {
   return (
-    <Link className="icon-btn" to="/dashboard" aria-label="Back to dashboard">
+    <Link className="icon-btn" to="/dashboard" viewTransition aria-label="Back to dashboard">
       <svg viewBox="0 0 24 24" width="22" height="22" aria-hidden="true">
         <path
           d="M15 5l-7 7 7 7"

@@ -17,6 +17,7 @@ function WeightAnalytics() {
   return (
     <AnalyticsView
       title="Weight"
+      tone="weight"
       description="Baby's weight over time. Shaded areas mark movement, when readings are less reliable; stats ignore them."
       series={series}
       unit={fmt.weightUnit}

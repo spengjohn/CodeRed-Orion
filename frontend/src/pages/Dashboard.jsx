@@ -1,4 +1,4 @@
-import { lazy, Suspense } from 'react'
+import { lazy, Suspense, useEffect } from 'react'
 import CribVideo from '../components/CribVideo'
 import MetricCard from '../components/MetricCard'
 import NightTimeline from '../components/NightTimeline'
@@ -7,6 +7,7 @@ import { useLiveReadings } from '../hooks/useLiveReadings'
 import { SNAPSHOT_INTERVAL_MS, useReadings } from '../hooks/useReadings'
 import { change, currentActivity } from '../utils/series'
 import { formatDuration } from '../utils/time'
+import { preloadAnalytics } from './analyticsRoutes'
 
 // three.js is large, so the Activity card's 3D baby loads in its own chunk.
 const BabyMotion = lazy(() => import('../components/BabyMotion'))
@@ -40,6 +41,9 @@ function Dashboard() {
     useLiveReadings()
   // A week of history for the weight trend; the live hook only holds an hour.
   const week = useReadings('7d')
+
+  // Load the analytics pages up front so a metric card can expand straight into one.
+  useEffect(preloadAnalytics, [])
 
   const problem = !isConnected
     ? hasData || isStale || error

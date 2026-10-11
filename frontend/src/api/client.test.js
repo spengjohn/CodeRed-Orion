@@ -36,3 +36,17 @@ test('explains a 401 and keeps the status', async () => {
     message: expect.stringMatching(/sign in again/i),
   })
 })
+
+test('keeps the API path out of the message shown to users', async () => {
+  mockFetch(500)
+  jest.spyOn(console, 'warn').mockImplementation(() => {})
+  const error = await get('/readings/latest').catch((e) => e)
+  expect(error).toMatchObject({ status: 500, path: '/readings/latest' })
+  expect(error.message).not.toMatch(/readings|GET|500/)
+})
+
+test('explains a network failure without browser internals', async () => {
+  globalThis.fetch = jest.fn().mockRejectedValue(new TypeError('NetworkError when attempting to fetch resource.'))
+  jest.spyOn(console, 'warn').mockImplementation(() => {})
+  await expect(get('/readings/latest')).rejects.toThrow("Can't reach the Whisker server.")
+})

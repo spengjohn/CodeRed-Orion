@@ -11,7 +11,11 @@ function ActivityAnalytics() {
   const { series, stats, loading, error } = useActivity(range)
 
   return (
-    <section className="page">
+    // Shares the dashboard card's view-transition name, so the card expands into this page.
+    <section
+      className="page metric-page"
+      style={{ '--m': 'var(--activity)', viewTransitionName: 'metric-activity' }}
+    >
       <div className="page-head">
         <div className="title-row">
           <BackLink />
