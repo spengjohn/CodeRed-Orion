@@ -9,7 +9,6 @@ import { formatDuration } from '../utils/time'
 import { activitySegments, axisTicks, groupByDistance, nightBands, summarize, TIMELINE_ZOOMS } from '../utils/timeline'
 import AlertIcon from './AlertIcon'
 
-const POPOVER_W = 280
 const PIN_GAP_PX = 30 // pins closer than this merge into one with a count
 
 function CloseButton({ onClose }) {
@@ -23,52 +22,92 @@ function CloseButton({ onClose }) {
 }
 
 // Details for a pin: one alert in full (with its snapshot), or a list when
-// several alerts were close together.
-function AlertPopover({ alerts, left, onClose }) {
+// several alerts were close together, presented in a focused pop-up modal.
+function AlertPopover({ alerts, onClose }) {
   const fmt = useFormatters()
   if (alerts.length > 1) {
     return (
-      <div className="tl-popover" role="dialog" aria-label={`${alerts.length} alerts`} style={{ left, '--m': 'var(--alert)' }}>
-        <CloseButton onClose={onClose} />
-        <strong>{alerts.length} alerts</strong>
-        <ul className="tl-popover-list">
-          {alerts.map((a) => (
-            <li key={a.id} style={{ '--m': `var(--${alertKind(a.code)})` }}>
-              <span>{alertTitle(a.description)}</span>
-              <span className="muted">{fmt.dateTime(a.ts)}</span>
-            </li>
-          ))}
-        </ul>
-        <Link to="/alerts">Open in alert log</Link>
+      <div className="tl-popover-overlay" onClick={onClose} role="presentation">
+        <div
+          className="tl-popover"
+          role="dialog"
+          aria-modal="true"
+          aria-label={`${alerts.length} alerts`}
+          style={{ '--m': 'var(--alert)' }}
+          onClick={(e) => e.stopPropagation()}
+        >
+          <CloseButton onClose={onClose} />
+          <div className="tl-popover-head">
+            <AlertIcon kind="alert" />
+            <div className="tl-popover-meta">
+              <strong>{alerts.length} alerts</strong>
+              <span className="muted">{fmt.dateTime(alerts[0].ts)}</span>
+            </div>
+          </div>
+          <ul className="tl-popover-list">
+            {alerts.map((a) => (
+              <li key={a.id} style={{ '--m': `var(--${alertKind(a.code)})` }}>
+                <span>{alertTitle(a.description)}</span>
+                <span className="muted">{fmt.time(a.ts)}</span>
+              </li>
+            ))}
+          </ul>
+          <div className="tl-popover-actions">
+            <Link to="/alerts" className="wbtn pri" onClick={onClose}>
+              Open in alert log
+            </Link>
+            <button type="button" className="wbtn gho" onClick={onClose}>
+              Dismiss
+            </button>
+          </div>
+        </div>
       </div>
     )
   }
-  return <SingleAlertPopover alert={alerts[0]} left={left} onClose={onClose} />
+  return <SingleAlertPopover alert={alerts[0]} onClose={onClose} />
 }
 
-function SingleAlertPopover({ alert, left, onClose }) {
+function SingleAlertPopover({ alert, onClose }) {
   const fmt = useFormatters()
   const { src, failed } = useAlertSnapshot(alert, true)
+  const kind = alertKind(alert.code)
+
   return (
-    <div
-      className="tl-popover"
-      role="dialog"
-      aria-label={alertTitle(alert.description)}
-      style={{ left, '--m': `var(--${alertKind(alert.code)})` }}
-    >
-      <CloseButton onClose={onClose} />
-      <strong>{alertTitle(alert.description)}</strong>
-      <span className="muted">{fmt.dateTime(alert.ts)}</span>
-      {alert.details.message && <span>{alert.details.message}</span>}
-      {alert.hasSnapshot &&
-        (src ? (
-          <img src={src} alt="Crib camera when the alert fired" />
-        ) : failed ? (
-          <span className="muted">Snapshot unavailable</span>
-        ) : (
-          <span className="skeleton tl-popover-img" aria-label="Loading snapshot" />
-        ))}
-      <Link to="/alerts">Open in alert log</Link>
+    <div className="tl-popover-overlay" onClick={onClose} role="presentation">
+      <div
+        className="tl-popover"
+        role="dialog"
+        aria-modal="true"
+        aria-label={alertTitle(alert.description)}
+        style={{ '--m': `var(--${kind})` }}
+        onClick={(e) => e.stopPropagation()}
+      >
+        <CloseButton onClose={onClose} />
+        <div className="tl-popover-head">
+          <AlertIcon kind={kind} />
+          <div className="tl-popover-meta">
+            <strong>{alertTitle(alert.description)}</strong>
+            <span className="muted">{fmt.dateTime(alert.ts)}</span>
+          </div>
+        </div>
+        {alert.details?.message && <p className="tl-popover-msg">{alert.details.message}</p>}
+        {alert.hasSnapshot &&
+          (src ? (
+            <img className="tl-popover-snap" src={src} alt="Crib camera when the alert fired" />
+          ) : failed ? (
+            <span className="muted">Snapshot unavailable</span>
+          ) : (
+            <span className="skeleton tl-popover-img" aria-label="Loading snapshot" />
+          ))}
+        <div className="tl-popover-actions">
+          <Link to="/alerts" className="wbtn pri" onClick={onClose}>
+            Open in alert log
+          </Link>
+          <button type="button" className="wbtn gho" onClick={onClose}>
+            Dismiss
+          </button>
+        </div>
+      </div>
     </div>
   )
 }
@@ -153,10 +192,7 @@ function NightTimeline({ liveReadings = [], now }) {
     return () => document.removeEventListener('keydown', onKey)
   }, [selectedId])
 
-  const selected = groups.find((g) => g.items[0].id === selectedId)
-  const popoverLeft = selected
-    ? Math.min(Math.max(selected.x - scrollLeft - POPOVER_W / 2, 0), Math.max(width - POPOVER_W, 0))
-    : 0
+  const selected = groups.find((g) => g.items.some((item) => item.id === selectedId))
 
   return (
     <section className="panel timeline">
@@ -260,7 +296,13 @@ function NightTimeline({ liveReadings = [], now }) {
         )}
       </div>
 
-      {selected && <AlertPopover alerts={selected.items} left={popoverLeft} onClose={() => setSelectedId(null)} />}
+      {selected && (
+        <AlertPopover
+          key={selectedId}
+          alerts={selected.items}
+          onClose={() => setSelectedId(null)}
+        />
+      )}
 
       <div className="tl-legend" aria-hidden="true">
         <span>
