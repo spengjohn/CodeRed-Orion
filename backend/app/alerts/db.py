@@ -2,7 +2,14 @@
 Decoupled Tiger Data (PostgreSQL) adapter for emergency alerts.
 
 Uses the same database URL as tiger.py (TIGER_DATABASE_URL) while inserting
-into a distinct alert table (defaults to 'emergency_events').
+into a distinct alert table (defaults to 'alerts').
+
+Expected table (created in Tiger Data, not by this code):
+    id          SERIAL PRIMARY KEY
+    alert_code  INTEGER NOT NULL      -- status code sent by the board
+    detail      TEXT                  -- board's details, stored as JSON text
+    timestamp   TIMESTAMPTZ           -- when the board detected the alert
+    snapshot    BYTEA                 -- camera snapshot bytes
 
 Does not auto-create the table; safely handles and logs any insertion or connection
 errors so the emergency pipeline is never blocked or crashed.
@@ -11,9 +18,8 @@ errors so the emergency pipeline is never blocked or crashed.
 import json
 import logging
 import os
-from datetime import datetime, timezone
+import re
 from pathlib import Path
-from typing import Optional
 from dotenv import load_dotenv
 
 # Explicitly load backend/.env
@@ -21,8 +27,11 @@ load_dotenv(Path(__file__).resolve().parent.parent.parent / ".env")
 
 logger = logging.getLogger(__name__)
 
-# Distinct table name from tiger.py's TIGER_TABLE ('infant_vitals')
-DEFAULT_ALERT_TABLE: str = "emergency_events"
+# Distinct table name from tiger.py's TIGER_TABLE (the vitals table)
+DEFAULT_ALERT_TABLE: str = "alerts"
+
+# Table names are inserted into SQL, so only allow plain identifiers
+_TABLE_NAME_RE = re.compile(r"^[A-Za-z_][A-Za-z0-9_]*$")
 
 
 def _get_table_name() -> str:
@@ -78,16 +87,25 @@ def save_emergency_alert(
     Does not auto-create the table. If TIGER_DATABASE_URL is not set or
     the table does not exist, logs the issue and returns False without crashing.
     """
+    try:
+        alert_code = int(emergency_type)  # the alert_code column is an integer
+    except (ValueError, TypeError):
+        logger.error("[DB] Alert code %r is not an integer — not saved.", emergency_type)
+        return False
+
+    table = _get_table_name()
+    if not _TABLE_NAME_RE.match(table):
+        logger.error("[DB] Invalid alert table name %r — not saved.", table)
+        return False
+
     record = {
-        "emergency_type": emergency_type,
-        "details": details if isinstance(details, dict) else {},
-        "snapshot": snapshot_bytes,
+        "alert_code": alert_code,
+        "detail": json.dumps(details) if isinstance(details, dict) and details else None,
+        "snapshot": snapshot_bytes or None,
         "timestamp": timestamp,
-        "received_at": datetime.now(timezone.utc),
     }
 
     conn = _get_connection()
-    table = _get_table_name()
 
     if conn is None:
         logger.info(
@@ -102,7 +120,7 @@ def save_emergency_alert(
     try:
         # Wrap raw bytes in psycopg2.Binary if psycopg2 connection is in use
         snapshot_param = record["snapshot"]
-        if "psycopg2" in conn.__class__.__module__:
+        if snapshot_param is not None and "psycopg2" in conn.__class__.__module__:
             try:
                 import psycopg2
                 snapshot_param = psycopg2.Binary(record["snapshot"])
@@ -113,19 +131,17 @@ def save_emergency_alert(
             with conn.cursor() as cur:
                 cur.execute(
                     f"""
-                    INSERT INTO {table}
-                        (emergency_type, details, snapshot, edge_timestamp, received_at)
-                    VALUES (%s, %s, %s, to_timestamp(%s), %s)
+                    INSERT INTO "{table}" (alert_code, detail, timestamp, snapshot)
+                    VALUES (%s, %s, to_timestamp(%s), %s)
                     """,
                     (
-                        record["emergency_type"],
-                        json.dumps(record["details"]),
-                        snapshot_param,
+                        record["alert_code"],
+                        record["detail"],
                         record["timestamp"],
-                        record["received_at"],
+                        snapshot_param,
                     ),
                 )
-        logger.info("[DB] Saved emergency alert to '%s': type=%s ts=%d", table, emergency_type, timestamp)
+        logger.info("[DB] Saved emergency alert to '%s': code=%d ts=%d", table, alert_code, timestamp)
         return True
 
     except Exception as exc:

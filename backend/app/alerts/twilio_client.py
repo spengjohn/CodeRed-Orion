@@ -1,7 +1,10 @@
 """
 Twilio multi-recipient dispatcher for emergency alerts.
 
-Sends voice calls and SMS messages to all registered phone numbers.
+Places a voice call with a custom spoken alert message to every registered
+phone number. SMS is off by default (TWILIO_SMS_ENABLED=true turns it on):
+texting US numbers needs A2P 10DLC registration, which this account doesn't have.
+
 Includes a full mock mode: if Twilio credentials are missing or set to
 'mock', all calls and messages are logged to the terminal instead of
 hitting the Twilio API — perfect for development and demo rehearsal.
@@ -11,6 +14,7 @@ import logging
 import os
 from pathlib import Path
 from typing import List, Tuple
+from xml.sax.saxutils import escape
 from dotenv import load_dotenv
 
 # Explicitly load backend/.env
@@ -38,11 +42,32 @@ def _is_mock_mode() -> bool:
     return False
 
 
+def _is_sms_enabled() -> bool:
+    """SMS is off unless TWILIO_SMS_ENABLED=true (US texting needs A2P 10DLC registration)."""
+    return os.getenv("TWILIO_SMS_ENABLED", "").strip().lower() in ("true", "1", "yes")
+
+
 def _get_client():
     """Lazily create and return a Twilio REST client."""
     from twilio.rest import Client
     sid, token, _ = _get_credentials()
     return Client(sid, token)
+
+
+# What each status code from the board means, as spoken in the call
+ALERT_DESCRIPTIONS = {
+    "1": "the baby's temperature is below room temperature",
+    "2": "the baby's temperature is at room temperature",
+    "3": "the baby's temperature is high",
+    "4": "the baby's breathing rate is very low",
+    "5": "the baby's breathing rate is very high",
+}
+
+
+def alert_description(emergency_type) -> str:
+    """Plain-language description of an alert code (falls back to the raw code)."""
+    code = str(emergency_type).strip()
+    return ALERT_DESCRIPTIONS.get(code, f"an alert with code {code}")
 
 
 def _build_twiml(emergency_type: str, timestamp: int) -> str:
@@ -52,11 +77,10 @@ def _build_twiml(emergency_type: str, timestamp: int) -> str:
     Uses <Say> with a clear, urgent cadence appropriate for an infant
     monitoring alert.
     """
+    description = escape(alert_description(emergency_type))  # board input: escape for XML
     message = (
-        f"CodeRed Alert. An emergency of type {emergency_type} "
-        f"has been detected by the infant monitoring system. "
-        f"Please check on the baby immediately. "
-        f"Repeating. {emergency_type} alert detected."
+        f"CodeRed Alert. The infant monitoring system detected that {description}. "
+        f"Please check on the baby immediately."
     )
     return (
         f'<Response>'
@@ -86,14 +110,14 @@ def dispatch_alerts(
     details: dict,
 ) -> dict:
     """
-    Send voice calls and SMS to every phone number in the list.
+    Place a voice call (and, if enabled, send an SMS) to every phone number in the list.
 
     Parameters
     ----------
     phones : list[str]
         E.164 formatted phone numbers.
     emergency_type : str
-        Alert type string (e.g. 'BREATHING_PAUSE').
+        Alert code from the board (e.g. '4').
     timestamp : int
         Unix timestamp of the event.
     details : dict
@@ -111,6 +135,7 @@ def dispatch_alerts(
         return results
 
     mock = _is_mock_mode()
+    sms_enabled = _is_sms_enabled()
     if mock:
         logger.info("[Twilio] Running in MOCK mode (credentials not configured).")
 
@@ -141,7 +166,9 @@ def dispatch_alerts(
             logger.error("[Twilio] Voice call to %s failed: %s", phone, exc)
             results["errors"] += 1
 
-        # --- SMS ---
+        # --- SMS (off unless TWILIO_SMS_ENABLED=true) ---
+        if not sms_enabled:
+            continue
         try:
             if mock:
                 logger.info(
