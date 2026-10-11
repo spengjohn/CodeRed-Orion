@@ -1,0 +1,68 @@
+/* Whisker design tokens, from whisker-style-tile.html. Names match the tile's
+   "Copy CSS" output, so its values can be pasted over these. Dark mode
+   follows the system unless <html data-theme="light|dark"> forces one. */
+:root {
+  --bg: #f3f4f1;
+  --surface: #ffffff;
+  --border: #dfe2dc;
+  --text: #2a2d2c;
+  --muted: #666b68;
+  --primary: #4a7c66;
+  --onaccent: #ffffff;
+  --secondary: #476a8e;
+  --calm: #5e5aa0;
+  --ok: #3d6b55;
+  --watch: #7b4f9e;
+  --alert: #a34747;
+  --temp: #4f8c8f;
+  --weight: #5f9a7c;
+  --breath: #6a8db3;
+  --activity: #9483bf;
+  --font-display: 'Nunito', ui-rounded, system-ui, sans-serif;
+  --font-number: 'Nunito', ui-rounded, system-ui, sans-serif;
+  --font-ui: 'Nunito Sans', system-ui, sans-serif;
+  --roundness: 0.6;
+  color-scheme: light;
+}
+
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme='light']) {
+    --bg: #13151a;
+    --surface: #1a1d23;
+    --border: #2c303a;
+    --text: #e6e7e4;
+    --muted: #8d929c;
+    --primary: #9fcdb6;
+    --onaccent: #12161a;
+    --secondary: #a7bfdc;
+    --calm: #b8b4ec;
+    --ok: #9fcdb6;
+    --watch: #d4b4ee;
+    --alert: #eda9a9;
+    --temp: #9ccfd1;
+    --weight: #a6d4b9;
+    --breath: #a7bfdc;
+    --activity: #c4b6e6;
+    color-scheme: dark;
+  }
+}
+
+:root[data-theme='dark'] {
+  --bg: #13151a;
+  --surface: #1a1d23;
+  --border: #2c303a;
+  --text: #e6e7e4;
+  --muted: #8d929c;
+  --primary: #9fcdb6;
+  --onaccent: #12161a;
+  --secondary: #a7bfdc;
+  --calm: #b8b4ec;
+  --ok: #9fcdb6;
+  --watch: #d4b4ee;
+  --alert: #eda9a9;
+  --temp: #9ccfd1;
+  --weight: #a6d4b9;
+  --breath: #a7bfdc;
+  --activity: #c4b6e6;
+  color-scheme: dark;
+}
