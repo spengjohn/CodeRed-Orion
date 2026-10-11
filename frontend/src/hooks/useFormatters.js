@@ -40,7 +40,8 @@ export function useFormatters() {
       weightUnit: weightUnitLabel(prefs.weightUnit),
       time: (ms) => formatTime(ms, timePrefs),
       dateTime: (ms) => formatDateTime(ms, timePrefs),
-      axisTick: (ms, rangeMs) => formatAxisTick(ms, rangeMs, timePrefs),
+      axisTick: (ms, rangeMs, opts) => formatAxisTick(ms, rangeMs, timePrefs, opts),
+      timeFormat: prefs.timeFormat,
       relative: formatRelative,
     }
   }, [prefs])

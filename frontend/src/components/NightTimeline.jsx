@@ -1,4 +1,5 @@
 import { useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react'
+import { createPortal } from 'react-dom'
 import { Link } from 'react-router'
 import { alertKind, alertTitle } from '../api/alerts'
 import { useActivityHistory } from '../hooks/useActivityHistory'
@@ -8,6 +9,7 @@ import { useFormatters } from '../hooks/useFormatters'
 import { formatDuration } from '../utils/time'
 import { activitySegments, axisTicks, groupByDistance, nightBands, summarize, TIMELINE_ZOOMS } from '../utils/timeline'
 import AlertIcon from './AlertIcon'
+import CatLoader from './CatLoader'
 
 const PIN_GAP_PX = 30 // pins closer than this merge into one with a count
 
@@ -97,7 +99,9 @@ function SingleAlertPopover({ alert, onClose }) {
           ) : failed ? (
             <span className="muted">Snapshot unavailable</span>
           ) : (
-            <span className="skeleton tl-popover-img" aria-label="Loading snapshot" />
+            <div className="tl-popover-img tl-popover-loading">
+              <CatLoader inline size={24} label="Loading snapshot…" />
+            </div>
           ))}
         <div className="tl-popover-actions">
           <Link to="/alerts" className="wbtn pri" onClick={onClose}>
@@ -198,7 +202,7 @@ function NightTimeline({ liveReadings = [], now }) {
     <section className="panel timeline">
       <div className="tl-head">
         <div>
-          <h2>Timeline</h2>
+          <h2>Alerts Timeline</h2>
           <span className="muted">
             {atNow ? `Last ${TIMELINE_ZOOMS[zoom].label}` : `${fmt.dateTime(viewFrom)} – ${fmt.dateTime(viewTo)}`}
             {' · '}moving {movingMs > 0 ? formatDuration(movingMs) : 'none'}
@@ -296,13 +300,12 @@ function NightTimeline({ liveReadings = [], now }) {
         )}
       </div>
 
-      {selected && (
-        <AlertPopover
-          key={selectedId}
-          alerts={selected.items}
-          onClose={() => setSelectedId(null)}
-        />
-      )}
+      {/* Portaled to <body> so .page's transform doesn't confine the fixed overlay. */}
+      {selected &&
+        createPortal(
+          <AlertPopover key={selectedId} alerts={selected.items} onClose={() => setSelectedId(null)} />,
+          document.body,
+        )}
 
       <div className="tl-legend" aria-hidden="true">
         <span>

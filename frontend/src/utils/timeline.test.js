@@ -1,4 +1,4 @@
-import { activitySegments, axisTicks, groupByDistance, movingShare, nightBands, summarize, TIMELINE_ZOOMS } from './timeline'
+import { activitySegments, axisTicks, chartTickStep, groupByDistance, meridiemBoundaries, movingShare, nightBands, summarize, TIMELINE_ZOOMS } from './timeline'
 
 const MIN = 60 * 1000
 const HOUR = 60 * MIN
@@ -43,6 +43,32 @@ test('axis ticks land on whole local hours and local midnight', () => {
   const daily = axisTicks(start, start + 3 * 24 * HOUR, 24 * HOUR)
   expect(daily).toHaveLength(3)
   expect(daily.every((t) => new Date(t).getHours() === 0)).toBe(true)
+})
+
+test('axis ticks support steps under an hour', () => {
+  const start = new Date(2026, 9, 10, 13, 7).getTime()
+  const ticks = axisTicks(start, start + HOUR, 15 * MIN)
+  expect(ticks.map((t) => new Date(t).getMinutes())).toEqual([15, 30, 45, 0])
+})
+
+test('chart tick steps give each range a handful of labels', () => {
+  const DAY = 24 * HOUR
+  for (const range of [HOUR, DAY, 7 * DAY, 14 * DAY, 30 * DAY]) {
+    const count = range / chartTickStep(range)
+    expect(count).toBeGreaterThanOrEqual(4)
+    expect(count).toBeLessThanOrEqual(8)
+  }
+})
+
+test('meridiem boundaries mark local noon and midnight inside the window', () => {
+  const start = new Date(2026, 9, 10, 9, 30).getTime()
+  const end = new Date(2026, 9, 11, 9, 30).getTime()
+  expect(meridiemBoundaries(start, end)).toEqual([
+    { ts: new Date(2026, 9, 10, 12, 0).getTime(), period: 'PM' },
+    { ts: new Date(2026, 9, 11, 0, 0).getTime(), period: 'AM' },
+  ])
+  const noon = new Date(2026, 9, 10, 12, 0).getTime()
+  expect(meridiemBoundaries(noon, noon + HOUR)).toEqual([])
 })
 
 test('night bands run 8 PM to 7 AM and are clipped to the window', () => {

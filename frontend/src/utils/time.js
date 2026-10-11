@@ -27,9 +27,32 @@ export function formatDateTime(ms, prefs) {
   return `${formatDate(ms, prefs)}, ${formatTime(ms, prefs)}`
 }
 
-// Chart X axis labels: times for ranges up to a day, dates beyond that.
-export function formatAxisTick(ms, rangeMs, prefs) {
-  return rangeMs <= DAY_MS ? formatTime(ms, prefs) : formatDate(ms, prefs)
+const withoutDayPeriod = (text) => text.replace(/\s?[AP]M$/, '')
+
+// Just the hour: "4 PM" (12h) or "16" (24h).
+export function formatHour(ms, { timeZone, timeFormat }) {
+  return new Intl.DateTimeFormat('en-US', {
+    timeZone,
+    hour: 'numeric',
+    hourCycle: hourCycle(timeFormat),
+  })
+    .format(ms)
+    .replace(/^0(\d)/, '$1')
+}
+
+// Chart X axis labels: M/D for ranges over a day, the hour for shorter ones,
+// and hour:minute under two hours (where ticks fall between whole hours).
+// meridiem: false leaves "AM"/"PM" off 12-hour times.
+export function formatAxisTick(ms, rangeMs, prefs, { meridiem = true } = {}) {
+  if (rangeMs > DAY_MS) {
+    return new Intl.DateTimeFormat('en-US', {
+      timeZone: prefs.timeZone,
+      month: 'numeric',
+      day: 'numeric',
+    }).format(ms)
+  }
+  const text = rangeMs < 2 * 60 * 60 * 1000 ? formatTime(ms, prefs) : formatHour(ms, prefs)
+  return meridiem ? text : withoutDayPeriod(text)
 }
 
 const relative = new Intl.RelativeTimeFormat('en', { numeric: 'auto' })

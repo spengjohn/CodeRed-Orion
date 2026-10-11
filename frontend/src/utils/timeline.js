@@ -58,15 +58,19 @@ export function groupByDistance(items, positionOf, minPx) {
 }
 
 // Tick times every stepMs inside [startMs, endMs], aligned to local clock time
-// (whole hours, or local midnight for day steps).
+// (whole minutes or hours, or local midnight for day steps).
 export function axisTicks(startMs, endMs, stepMs) {
   const first = new Date(startMs)
   if (stepMs >= DAY) {
     first.setHours(0, 0, 0, 0)
-  } else {
+  } else if (stepMs >= HOUR) {
     first.setMinutes(0, 0, 0)
-    const stepHours = Math.max(1, Math.round(stepMs / HOUR))
+    const stepHours = Math.round(stepMs / HOUR)
     first.setHours(Math.floor(first.getHours() / stepHours) * stepHours)
+  } else {
+    first.setSeconds(0, 0)
+    const stepMinutes = Math.max(1, Math.round(stepMs / MINUTE))
+    first.setMinutes(Math.floor(first.getMinutes() / stepMinutes) * stepMinutes)
   }
   const ticks = []
   for (let t = first.getTime(); t <= endMs; ) {
@@ -74,10 +78,33 @@ export function axisTicks(startMs, endMs, stepMs) {
     // Step in local time so day ticks stay on midnight across DST changes.
     const next = new Date(t)
     if (stepMs >= DAY) next.setDate(next.getDate() + Math.round(stepMs / DAY))
-    else next.setHours(next.getHours() + Math.round(stepMs / HOUR))
+    else if (stepMs >= HOUR) next.setHours(next.getHours() + Math.round(stepMs / HOUR))
+    else next.setMinutes(next.getMinutes() + Math.max(1, Math.round(stepMs / MINUTE)))
     t = next.getTime()
   }
   return ticks
+}
+
+// Tick spacing for the analytics charts, picked so a range gets ~5-8 labels.
+export function chartTickStep(rangeMs) {
+  if (rangeMs <= 2 * HOUR) return 15 * MINUTE
+  if (rangeMs <= DAY) return 4 * HOUR
+  if (rangeMs <= 7 * DAY) return DAY
+  if (rangeMs <= 14 * DAY) return 2 * DAY
+  return 5 * DAY
+}
+
+// Local midnights and noons strictly inside (startMs, endMs), where 12-hour
+// time switches between AM and PM. Returns [{ ts, period }], oldest first.
+export function meridiemBoundaries(startMs, endMs) {
+  const boundaries = []
+  const t = new Date(startMs)
+  t.setHours(t.getHours() < 12 ? 12 : 24, 0, 0, 0)
+  while (t.getTime() < endMs) {
+    if (t.getTime() > startMs) boundaries.push({ ts: t.getTime(), period: t.getHours() === 12 ? 'PM' : 'AM' })
+    t.setHours(t.getHours() === 12 ? 24 : 12)
+  }
+  return boundaries
 }
 
 // Night spans (8 PM to 7 AM local time) overlapping [startMs, endMs], clipped to it.
