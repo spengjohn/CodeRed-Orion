@@ -1,12 +1,13 @@
 """
 Emergency Alert Dispatcher.
 
-Coordinates three actions in parallel when an emergency is triggered:
-1. Push the alert + snapshot to the frontend via Socket.IO.
-2. Persist the record to the Tiger Data database.
-3. Dispatch voice calls and SMS to all registered phone numbers via Twilio.
+Coordinates three actions when an emergency is triggered:
+1. Persist the record to the Tiger Data database, then
+2. push the alert + snapshot to the frontend via Socket.IO (with the saved row's id,
+   so it matches the alert log from GET /api/alerts).
+3. In parallel: voice calls (and SMS if enabled) to all registered numbers via Twilio.
 
-All three are fired in background threads so the TCP relay is never blocked.
+Both run in background threads so the TCP relay is never blocked.
 """
 
 import base64
@@ -16,6 +17,7 @@ from typing import Optional
 
 from app.realtime import socketio
 from app.data.format import to_alert
+from app.alerts.codes import alert_description
 from app.alerts.db import save_emergency_alert
 from app.alerts.recipients import get_recipients
 from app.alerts.twilio_client import dispatch_alerts
@@ -33,7 +35,13 @@ def get_latest_alert() -> Optional[dict]:
         return _latest_alert
 
 
-def _emit_socketio(emergency_type: str, timestamp: int, details: dict, snapshot_bytes: bytes) -> None:
+def _emit_socketio(
+    emergency_type: str,
+    timestamp: int,
+    details: dict,
+    snapshot_bytes: bytes,
+    db_id: Optional[int] = None,
+) -> None:
     """Push the emergency alert to all connected frontend clients."""
     global _latest_alert
     try:
@@ -44,22 +52,36 @@ def _emit_socketio(emergency_type: str, timestamp: int, details: dict, snapshot_
             details=details,
             snapshot_bytes_or_str=snapshot_bytes,
         )
+        # Extra fields for the alert log page: readable text, and the saved row's id
+        # (same as "id" in GET /api/alerts, so the page can tell it already has this alert).
+        try:
+            code = int(emergency_type)
+        except (ValueError, TypeError):
+            code = None
+        alert_payload.update({
+            "code": code,
+            "description": alert_description(emergency_type),
+            "dbId": db_id,
+            "snapshotUrl": f"/api/alerts/{db_id}/snapshot" if db_id is not None and snapshot_bytes else None,
+        })
 
         with _latest_alert_lock:
             _latest_alert = alert_payload
 
         socketio.emit("emergency_alert", alert_payload)
-        logger.info("[Dispatcher] Socket.IO emergency_alert emitted: type=%s", emergency_type)
+        logger.info("[Dispatcher] Socket.IO emergency_alert emitted: type=%s dbId=%s", emergency_type, db_id)
     except Exception as exc:
         logger.error("[Dispatcher] Socket.IO emit failed: %s", exc)
 
 
-def _save_to_db(emergency_type: str, details: dict, snapshot_bytes: bytes, timestamp: int) -> None:
-    """Persist the alert to the database (best-effort)."""
+def _save_then_emit(emergency_type: str, timestamp: int, details: dict, snapshot_bytes: bytes) -> None:
+    """Save the alert to the database (best-effort), then push it with the saved id."""
+    db_id = None
     try:
-        save_emergency_alert(emergency_type, details, snapshot_bytes, timestamp)
+        db_id = save_emergency_alert(emergency_type, details, snapshot_bytes, timestamp)
     except Exception as exc:
         logger.error("[Dispatcher] DB save failed: %s", exc)
+    _emit_socketio(emergency_type, timestamp, details, snapshot_bytes, db_id)
 
 
 def _send_twilio(emergency_type: str, timestamp: int, details: dict) -> None:
@@ -103,16 +125,10 @@ def handle_emergency(
         len(snapshot_bytes),
     )
 
-    # Fire all three channels in parallel, non-blocking
+    # Save then push (one thread), and Twilio calls in parallel, non-blocking
     threading.Thread(
-        target=_emit_socketio,
+        target=_save_then_emit,
         args=(emergency_type, timestamp, details, snapshot_bytes),
-        daemon=True,
-    ).start()
-
-    threading.Thread(
-        target=_save_to_db,
-        args=(emergency_type, details, snapshot_bytes, timestamp),
         daemon=True,
     ).start()
 

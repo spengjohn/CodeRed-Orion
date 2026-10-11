@@ -1,16 +1,19 @@
 """
-REST API endpoints for managing emergency alert recipients.
+REST API endpoints for emergency alerts.
 
 Provides POST/GET/DELETE on /api/alerts/recipients so judges and parents
-can register their phone numbers for live demo alerts.
+can register their phone numbers for live demo alerts, plus the alert log
+(GET /api/alerts) and each alert's snapshot image for the frontend.
 """
 
 import re
 import logging
-from flask import Blueprint, jsonify, request
+from flask import Blueprint, Response, jsonify, request
 from app.auth.auth import require_auth
 
 from app.alerts.recipients import add_recipient, get_recipients, clear_recipients
+from app.alerts.db import get_alert_snapshot, list_alerts
+from app.data.format import to_alert_record
 
 logger = logging.getLogger(__name__)
 
@@ -18,6 +21,45 @@ bp = Blueprint("alert_routes", __name__, url_prefix="/api/alerts")
 
 # Basic E.164 validation: + followed by 7-15 digits
 _PHONE_RE = re.compile(r"^\+[1-9]\d{6,14}$")
+
+MAX_ALERTS = 200  # cap per request for the alert log
+
+
+@bp.route("", methods=["GET"])
+@require_auth
+def alert_log():
+    """
+    The alert log, newest first: GET /api/alerts?limit=50  (limit 1-200, default 50)
+
+    Returns 200 {"alerts": [...], "count": n}. Images aren't included; each alert
+    with an image has a snapshotUrl to fetch it from (login required).
+    """
+    try:
+        limit = int(request.args.get("limit", 50))
+    except ValueError:
+        return jsonify({"error": "limit must be an integer"}), 400
+    if not 1 <= limit <= MAX_ALERTS:
+        return jsonify({"error": f"limit must be between 1 and {MAX_ALERTS}"}), 400
+
+    rows = list_alerts(limit)
+    if rows is None:
+        return jsonify({"error": "alert log unavailable (database not reachable)"}), 503
+
+    alerts = [
+        to_alert_record(alert_id, code, ts, detail, has_snapshot)
+        for alert_id, code, detail, ts, has_snapshot in rows  # column order from list_alerts()
+    ]
+    return jsonify({"alerts": alerts, "count": len(alerts)}), 200
+
+
+@bp.route("/<int:alert_id>/snapshot", methods=["GET"])
+@require_auth
+def alert_snapshot(alert_id: int):
+    """One alert's camera snapshot as a JPEG: GET /api/alerts/<id>/snapshot (404 if none)."""
+    image = get_alert_snapshot(alert_id)
+    if image is None:
+        return jsonify({"error": "no snapshot for this alert"}), 404
+    return Response(image, mimetype="image/jpeg")
 
 
 @bp.route("/recipients", methods=["POST"])
