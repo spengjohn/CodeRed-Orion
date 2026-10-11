@@ -74,6 +74,34 @@ def to_alert(emergency_type, unix_time, details, snapshot_bytes_or_str):
     }
 
 
+def to_alert_record(alert_id, code, unix_time, detail, has_snapshot):
+    """
+    One saved alert (a row of the alerts table) for the frontend's alert log.
+
+    The image isn't included; the frontend loads it from snapshotUrl (login required).
+    `detail` is the JSON text stored by the backend; it's turned back into a dict.
+    """
+    import json
+    from app.alerts.codes import alert_description
+
+    try:
+        details = json.loads(detail) if detail else {}
+    except (TypeError, ValueError):
+        details = {}
+    if not isinstance(details, dict):
+        details = {}
+
+    return {
+        "id": int(alert_id),
+        "code": int(code),
+        "description": alert_description(code),
+        "ts": int(unix_time) if unix_time else 0,
+        "details": details,
+        "hasSnapshot": bool(has_snapshot),
+        "snapshotUrl": f"/api/alerts/{int(alert_id)}/snapshot" if has_snapshot else None,
+    }
+
+
 def to_video_frame(unix_time, frame_str, frame_id=0):
     """
     Format a video livestream frame into a JSON-ready dict for React frontends.

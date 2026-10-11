@@ -67,6 +67,38 @@ socket.on("vitals", (reading) => { /* same shape as /latest */ });
 ```
 Load charts once from `/history`, then append each pushed reading. Ignore a reading if its `ts` isn't newer than the last one.
 
+## Alerts (for the alerts page)
+When the board sends an alert, the backend saves it to the `alerts` table, calls every registered number (Twilio), and pushes it live. All alert routes need the Auth0 token.
+
+| Code | Meaning |
+|---|---|
+| 1 | baby's temperature is below room temperature |
+| 2 | baby's temperature is at room temperature |
+| 3 | baby's temperature is high |
+| 4 | baby's breathing rate is very low |
+| 5 | baby's breathing rate is very high |
+
+**Alert log:** `GET /api/alerts?limit=50` (newest first, `limit` 1–200):
+```json
+{ "count": 1, "alerts": [
+  { "id": 19, "code": 4, "description": "the baby's breathing rate is very low", "ts": 1791712726,
+    "details": {"bpm": 9}, "hasSnapshot": true, "snapshotUrl": "/api/alerts/19/snapshot" } ] }
+```
+
+**Snapshot image:** `GET /api/alerts/<id>/snapshot` returns the JPEG (404 if none). An `<img src>` can't send the token, so fetch it and use a blob URL:
+```ts
+const res = await fetch(`${API}${alert.snapshotUrl}`, { headers: { Authorization: `Bearer ${token}` } });
+const imgSrc = URL.createObjectURL(await res.blob());
+```
+
+**Live:** Socket.IO event `emergency_alert` on the same socket as `vitals`:
+```json
+{ "dbId": 19, "code": 4, "description": "the baby's breathing rate is very low", "ts": 1791712726,
+  "details": {"bpm": 9}, "snapshotUrl": "/api/alerts/19/snapshot", "image": "data:image/jpeg;base64,...",
+  "id": "alert-1791712726", "type": "4", "emergencyType": "4", "snapshot": "data:image/jpeg;base64,..." }
+```
+`image` can be shown directly (`<img src={alert.image}>`). Load the log once from `GET /api/alerts`, then add each pushed alert to the top; **`dbId` in the event is the same as `id` in the log**, so skip it if it's already in the list. `dbId` is `null` if saving to the database failed.
+
 ## Going live with Tiger Data
 1. In your `backend/.env` (see above), set `TIGER_DATABASE_URL` and `TIGER_TABLE=infant_vitals`.
 2. `python scripts/check_tiger.py` should print real readings.

@@ -20,6 +20,7 @@ import logging
 import os
 import re
 from pathlib import Path
+from typing import List, Optional
 from dotenv import load_dotenv
 
 # Explicitly load backend/.env
@@ -80,23 +81,24 @@ def save_emergency_alert(
     details: dict,
     snapshot_bytes: bytes,
     timestamp: int,
-) -> bool:
+) -> Optional[int]:
     """
     Persist an emergency alert record to the database table.
 
+    Returns the new row's id, or None if it wasn't saved.
     Does not auto-create the table. If TIGER_DATABASE_URL is not set or
-    the table does not exist, logs the issue and returns False without crashing.
+    the table does not exist, logs the issue and returns None without crashing.
     """
     try:
         alert_code = int(emergency_type)  # the alert_code column is an integer
     except (ValueError, TypeError):
         logger.error("[DB] Alert code %r is not an integer — not saved.", emergency_type)
-        return False
+        return None
 
     table = _get_table_name()
     if not _TABLE_NAME_RE.match(table):
         logger.error("[DB] Invalid alert table name %r — not saved.", table)
-        return False
+        return None
 
     record = {
         "alert_code": alert_code,
@@ -115,7 +117,7 @@ def save_emergency_alert(
             emergency_type,
             timestamp,
         )
-        return False
+        return None
 
     try:
         # Wrap raw bytes in psycopg2.Binary if psycopg2 connection is in use
@@ -133,6 +135,7 @@ def save_emergency_alert(
                     f"""
                     INSERT INTO "{table}" (alert_code, detail, timestamp, snapshot)
                     VALUES (%s, %s, to_timestamp(%s), %s)
+                    RETURNING id
                     """,
                     (
                         record["alert_code"],
@@ -141,13 +144,77 @@ def save_emergency_alert(
                         snapshot_param,
                     ),
                 )
-        logger.info("[DB] Saved emergency alert to '%s': code=%d ts=%d", table, alert_code, timestamp)
-        return True
+                alert_id = cur.fetchone()[0]
+        logger.info("[DB] Saved emergency alert to '%s': id=%d code=%d ts=%d", table, alert_id, alert_code, timestamp)
+        return alert_id
 
     except Exception as exc:
         logger.error("[DB] Failed to save alert to '%s': %s", table, exc)
-        return False
+        return None
 
+    finally:
+        try:
+            conn.close()
+        except Exception:
+            pass
+
+
+def list_alerts(limit: int = 50) -> Optional[List[tuple]]:
+    """
+    Newest alerts first, without snapshot bytes (keeps the list small).
+
+    Each row: (id, alert_code, detail_text, unix_seconds, has_snapshot).
+    Returns None if the database is unavailable (so the API can report an error).
+    """
+    table = _get_table_name()
+    if not _TABLE_NAME_RE.match(table):
+        logger.error("[DB] Invalid alert table name %r.", table)
+        return None
+
+    conn = _get_connection()
+    if conn is None:
+        return None
+    try:
+        with conn.cursor() as cur:
+            cur.execute(
+                f"""
+                SELECT id, alert_code, detail,
+                       extract(epoch from timestamp)::bigint,
+                       snapshot IS NOT NULL AND length(snapshot) > 0
+                FROM "{table}"
+                ORDER BY timestamp DESC, id DESC
+                LIMIT %s
+                """,
+                (limit,),
+            )
+            return cur.fetchall()
+    except Exception as exc:
+        logger.error("[DB] Failed to list alerts from '%s': %s", table, exc)
+        return None
+    finally:
+        try:
+            conn.close()
+        except Exception:
+            pass
+
+
+def get_alert_snapshot(alert_id: int) -> Optional[bytes]:
+    """Snapshot bytes for one alert, or None if missing, empty or unavailable."""
+    table = _get_table_name()
+    if not _TABLE_NAME_RE.match(table):
+        return None
+
+    conn = _get_connection()
+    if conn is None:
+        return None
+    try:
+        with conn.cursor() as cur:
+            cur.execute(f'SELECT snapshot FROM "{table}" WHERE id = %s', (alert_id,))
+            row = cur.fetchone()
+        return bytes(row[0]) if row and row[0] else None
+    except Exception as exc:
+        logger.error("[DB] Failed to read snapshot %s from '%s': %s", alert_id, table, exc)
+        return None
     finally:
         try:
             conn.close()

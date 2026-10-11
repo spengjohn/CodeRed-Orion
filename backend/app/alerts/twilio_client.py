@@ -17,6 +17,8 @@ from typing import List, Tuple
 from xml.sax.saxutils import escape
 from dotenv import load_dotenv
 
+from app.alerts.codes import alert_description
+
 # Explicitly load backend/.env
 load_dotenv(Path(__file__).resolve().parent.parent.parent / ".env")
 
@@ -52,22 +54,6 @@ def _get_client():
     from twilio.rest import Client
     sid, token, _ = _get_credentials()
     return Client(sid, token)
-
-
-# What each status code from the board means, as spoken in the call
-ALERT_DESCRIPTIONS = {
-    "1": "the baby's temperature is below room temperature",
-    "2": "the baby's temperature is at room temperature",
-    "3": "the baby's temperature is high",
-    "4": "the baby's breathing rate is very low",
-    "5": "the baby's breathing rate is very high",
-}
-
-
-def alert_description(emergency_type) -> str:
-    """Plain-language description of an alert code (falls back to the raw code)."""
-    code = str(emergency_type).strip()
-    return ALERT_DESCRIPTIONS.get(code, f"an alert with code {code}")
 
 
 def _build_twiml(emergency_type: str, timestamp: int) -> str:
