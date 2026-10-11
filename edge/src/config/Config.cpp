@@ -86,5 +86,17 @@ Config Config::load_from_env() {
     if (const char* value = std::getenv("TIMESERIES_ENABLED")) {
         cfg.timeseries_enabled = std::string(value) != "0";
     }
+    if (const char* value = std::getenv("STREAM_ID")) {
+        cfg.stream_id = value;
+    }
+    if (const char* value = std::getenv("TARGET_FPS")) {
+        cfg.target_fps = std::atoi(value);
+    }
+    if (const char* value = std::getenv("UPLINK_ENABLED")) {
+        cfg.uplink_enabled = std::string(value) != "0";
+    }
+    if (const char* value = std::getenv("TRACKING_ENABLED")) {
+        cfg.tracking_enabled = std::string(value) != "0";
+    }
     return cfg;
 }

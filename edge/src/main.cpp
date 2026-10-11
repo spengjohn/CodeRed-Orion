@@ -1,5 +1,12 @@
 #include "config/Config.hpp"
+#include "hardware/CoralDriver.hpp"
+#include "hardware/MaestroDriver.hpp"
+#include "hardware/OV5647.hpp"
 #include "net/TimeseriesClient.hpp"
+#include "net/UplinkClient.hpp"
+#include "pipeline/BabyTrackPipeline.hpp"
+#include "pipeline/IrStreamPipeline.hpp"
+#include "vision/CameraFusion.hpp"
 #include "vitals/VitalsHub.hpp"
 
 #include <chrono>
@@ -27,10 +34,36 @@ int main() {
         return EXIT_FAILURE;
     }
 
+    OV5647 camera;
+    CameraFusion fusion;
+    CoralDriver coral;
+    MaestroDriver maestro;
+    UplinkClient uplink;
+    IrStreamPipeline ir_stream;
+    BabyTrackPipeline baby_track;
+
+    if (!camera.init()) {
+        hub.shutdown();
+        return EXIT_FAILURE;
+    }
+    fusion.init();
+    coral.init();
+    maestro.init();
+    uplink.init(cfg);
+    ir_stream.init(cfg, camera, fusion, uplink);
+    baby_track.init(camera, coral, hub.thermal, maestro, hub.roi);
+
     TimeseriesClient timeseries;
     if (cfg.timeseries_enabled) {
         if (!timeseries.init(cfg)) {
             std::cerr << "timeseries init failed: " << timeseries.last_error() << '\n';
+            baby_track.shutdown();
+            ir_stream.shutdown();
+            uplink.shutdown();
+            maestro.shutdown();
+            coral.shutdown();
+            fusion.shutdown();
+            camera.shutdown();
             hub.shutdown();
             return EXIT_FAILURE;
         }
@@ -50,12 +83,24 @@ int main() {
     float last_good_weight = 0.0f;
     bool have_last_good_weight = false;
 
-    while (hub.thermal.ready) {
+    while (hub.thermal.ready && camera.ready) {
         if (!hub.refresh()) {
             break;
         }
+        if (!camera.refresh()) {
+            break;
+        }
 
-        const ThermalRoiSample temps = hub.roi.sample(hub.thermal, nullptr);
+        if (cfg.uplink_enabled) {
+            ir_stream.process_frame();
+        }
+        if (cfg.tracking_enabled) {
+            baby_track.process_frame();
+            maestro.refresh();
+        }
+
+        const CoralDetection* baby_box = baby_track.baby;
+        const ThermalRoiSample temps = hub.roi.sample(hub.thermal, baby_box);
         if (std::isfinite(temps.ambient_temp_c)) {
             ambient_sum += static_cast<double>(temps.ambient_temp_c);
             ++ambient_count;
@@ -107,7 +152,11 @@ int main() {
                     : 0.0f;
             }
 
-            reading.baby_temp = 0.0f;
+            if (baby_track.baby_temp_valid) {
+                reading.baby_temp = round2(baby_track.baby_temp_c);
+            } else {
+                reading.baby_temp = 0.0f;
+            }
             reading.breaths = 0;
             reading.moved = false;
 
@@ -132,9 +181,17 @@ int main() {
             next_vitals_at = now + std::chrono::seconds(interval_sec);
         }
 
-        std::this_thread::sleep_for(std::chrono::milliseconds(100));
+        const int fps = cfg.target_fps > 0 ? cfg.target_fps : 20;
+        std::this_thread::sleep_for(std::chrono::milliseconds(1000 / fps));
     }
 
+    baby_track.shutdown();
+    ir_stream.shutdown();
+    uplink.shutdown();
+    maestro.shutdown();
+    coral.shutdown();
+    fusion.shutdown();
+    camera.shutdown();
     hub.shutdown();
     timeseries.shutdown();
     return EXIT_SUCCESS;
