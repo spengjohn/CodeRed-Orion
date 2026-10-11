@@ -5,3 +5,4 @@ simple-websocket
 pyjwt[crypto]
 requests
 python-dotenv
+psycopg[binary,pool]
