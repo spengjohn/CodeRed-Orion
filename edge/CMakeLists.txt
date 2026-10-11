@@ -111,24 +111,37 @@ if(ENABLE_CORAL)
     if(CORAL_USE_PREBUILT_TFLITE AND EXISTS "${_tflite_a}")
         message(STATUS "Using PREBUILT TFLite (no FetchContent): ${_tflite_a}")
 
-        # Pull every static lib from the finished tree; --start-group resolves cycles.
-        file(GLOB_RECURSE _tflite_static_libs "${TFLITE_BINARY_DIR}/*.a")
-        # Also pick up deps that Hardware Testing may have left under its build-coral.
+        # Gather static libs from the finished tree, but drop conflicting fft2d
+        # variants (fft4f2d vs fftsg both define makewt/makect/bitrv2).
+        file(GLOB_RECURSE _tflite_raw_libs "${TFLITE_BINARY_DIR}/*.a")
         if(DEFINED ENV{TFLITE_EXTRA_LIB_DIR} AND EXISTS "$ENV{TFLITE_EXTRA_LIB_DIR}")
             file(GLOB_RECURSE _extra_static "$ENV{TFLITE_EXTRA_LIB_DIR}/*.a")
-            list(APPEND _tflite_static_libs ${_extra_static})
+            list(APPEND _tflite_raw_libs ${_extra_static})
         endif()
+
+        set(_tflite_static_libs "")
+        foreach(_lib ${_tflite_raw_libs})
+            get_filename_component(_name "${_lib}" NAME)
+            # Skip alternate FFT implementations and junk.
+            if(_name MATCHES "fft4f2d" OR _name MATCHES "fftsg2d")
+                continue()
+            endif()
+            if(_name MATCHES "_test\\.a$" OR _name MATCHES "benchmark")
+                continue()
+            endif()
+            list(APPEND _tflite_static_libs "${_lib}")
+        endforeach()
         list(REMOVE_DUPLICATES _tflite_static_libs)
 
-        # Flatbuffers / other generated headers often live next to the build.
+        # Flatbuffers headers often live next to the build.
         if(EXISTS "${TFLITE_BINARY_DIR}/flatbuffers/include")
             target_include_directories(edge PRIVATE "${TFLITE_BINARY_DIR}/flatbuffers/include")
         endif()
-        file(GLOB _fb_inc_dirs "${TFLITE_BINARY_DIR}/**/flatbuffers/include")
-        foreach(_d ${_fb_inc_dirs})
-            if(IS_DIRECTORY "${_d}")
-                target_include_directories(edge PRIVATE "${_d}")
-            endif()
+        file(GLOB_RECURSE _fb_hdrs "${TFLITE_BINARY_DIR}/**/flatbuffers/flatbuffers.h")
+        foreach(_h ${_fb_hdrs})
+            get_filename_component(_inc "${_h}" DIRECTORY)      # .../flatbuffers
+            get_filename_component(_inc "${_inc}" DIRECTORY)    # .../include
+            target_include_directories(edge PRIVATE "${_inc}")
         endforeach()
 
         target_link_libraries(edge PRIVATE
