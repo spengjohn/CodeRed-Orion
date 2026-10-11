@@ -79,6 +79,8 @@ int main() {
     const int interval_sec = cfg.vitals_interval_sec > 0 ? cfg.vitals_interval_sec : 60;
     auto next_vitals_at = std::chrono::steady_clock::now()
         + std::chrono::seconds(interval_sec);
+    auto next_breath_log_at = std::chrono::steady_clock::now()
+        + std::chrono::seconds(1);
 
     double ambient_sum = 0.0;
     int ambient_count = 0;
@@ -89,6 +91,12 @@ int main() {
     int weight_count = 0;
     float last_good_weight = 0.0f;
     bool have_last_good_weight = false;
+
+    std::cout
+        << "lidar init demo=" << (hub.lidar.demo_mode ? 1 : 0)
+        << " port=" << (hub.lidar.port_path[0] ? hub.lidar.port_path : "-")
+        << " err=" << (hub.lidar.last_error[0] ? hub.lidar.last_error : "-")
+        << '\n';
 
     while (hub.thermal.ready && camera.ready) {
         if (!hub.refresh()) {
@@ -124,6 +132,15 @@ int main() {
         }
 
         const auto now = std::chrono::steady_clock::now();
+        if (now >= next_breath_log_at) {
+            std::cout
+                << "breath dist_mm=" << hub.lidar.distance_mm
+                << " demo=" << (hub.lidar.demo_mode ? 1 : 0)
+                << " count=" << hub.breath.breaths_this_minute
+                << " half=" << hub.breath.half_cycles
+                << '\n';
+            next_breath_log_at = now + std::chrono::seconds(1);
+        }
         if (cfg.timeseries_enabled && now >= next_vitals_at) {
             VitalsReading reading = hub.sample();
 
