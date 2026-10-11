@@ -130,7 +130,7 @@ bool BabyTrackPipeline::control_servos() {
     if (baby == nullptr) {
         return true;
     }
-    // Mount wiring: positive image pan (baby right of center) needs a negative
-    // Maestro pan nudge. Logged pan_error stays image-space; only actuation flips.
-    return maestro->center_from_error(-pan_error, tilt_error);
+    // Mount wiring: positive image error needs a negative Maestro nudge on both
+    // axes. Logged pan/tilt_error stay image-space; only actuation flips.
+    return maestro->center_from_error(-pan_error, -tilt_error);
 }
