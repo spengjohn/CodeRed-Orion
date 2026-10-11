@@ -48,7 +48,7 @@ PressurePlateSample PressurePlate::sample(const ADS1115Driver& pressure) const {
         moment_y += kg * k_leg_y_mm[i];
     }
 
-    out.weight_kg = total;
+    out.weight_kg = total * demo_scale;
     out.valid = true;
 
     if (total > 1.0e-3f) {

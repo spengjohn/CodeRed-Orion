@@ -19,6 +19,7 @@ struct PressurePlate {
         plate_width_mm * 0.5f - sensor_radius_mm;
     static constexpr float half_span_y_mm =
         plate_length_mm * 0.5f - sensor_radius_mm;
+    static constexpr float demo_scale = 6.8f / 25.38f;
 
     bool init();
     void shutdown();
