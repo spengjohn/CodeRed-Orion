@@ -45,6 +45,11 @@ int main() {
     float last_good_ambient = 0.0f;
     bool have_last_good_ambient = false;
 
+    double weight_sum = 0.0;
+    int weight_count = 0;
+    float last_good_weight = 0.0f;
+    bool have_last_good_weight = false;
+
     while (hub.thermal.ready) {
         if (!hub.refresh()) {
             break;
@@ -56,6 +61,14 @@ int main() {
             ++ambient_count;
             last_good_ambient = temps.ambient_temp_c;
             have_last_good_ambient = true;
+        }
+
+        const PressurePlateSample load = hub.plate.sample(hub.pressure);
+        if (load.valid && std::isfinite(load.weight_kg)) {
+            weight_sum += static_cast<double>(load.weight_kg);
+            ++weight_count;
+            last_good_weight = load.weight_kg;
+            have_last_good_weight = true;
         }
 
         const auto now = std::chrono::steady_clock::now();
@@ -78,7 +91,22 @@ int main() {
                     : 0.0f;
             }
 
-            reading.weight = 0.0f;
+            if (weight_count > 0) {
+                reading.weight = round2(static_cast<float>(
+                    weight_sum / static_cast<double>(weight_count)
+                ));
+            } else if (have_last_good_weight) {
+                reading.weight = round2(last_good_weight);
+            } else {
+                reading.weight = 0.0f;
+            }
+
+            if (!std::isfinite(reading.weight)) {
+                reading.weight = have_last_good_weight
+                    ? round2(last_good_weight)
+                    : 0.0f;
+            }
+
             reading.baby_temp = 0.0f;
             reading.breaths = 0;
             reading.moved = false;
@@ -99,6 +127,8 @@ int main() {
 
             ambient_sum = 0.0;
             ambient_count = 0;
+            weight_sum = 0.0;
+            weight_count = 0;
             next_vitals_at = now + std::chrono::seconds(interval_sec);
         }
 

@@ -14,6 +14,7 @@ set(EDGE_SOURCES
     src/hardware/mlx90640/MLX90640_LINUX_I2C_Driver.cpp
     src/net/TimeseriesClient.cpp
     src/vision/ThermalRoiSampler.cpp
+    src/vitals/PressurePlate.cpp
     src/vitals/VitalsHub.cpp
 )
 

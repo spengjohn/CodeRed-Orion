@@ -19,6 +19,7 @@ bool VitalsHub::init() {
     ok = thermal.init() && ok;
     ok = pressure.init() && ok;
     ok = roi.init() && ok;
+    ok = plate.init() && ok;
     return ok;
 }
 
@@ -35,10 +36,11 @@ VitalsReading VitalsHub::sample() const {
                                .count();
 
     const ThermalRoiSample temps = roi.sample(thermal, nullptr);
+    const PressurePlateSample load = plate.sample(pressure);
 
     VitalsReading reading;
     reading.unix_time = unix_time;
-    reading.weight = 0.0f;
+    reading.weight = load.valid ? round2(load.weight_kg) : 0.0f;
     reading.ambient_temp = round2(temps.ambient_temp_c);
     reading.baby_temp = 0.0f;
     reading.breaths = 0;
@@ -47,6 +49,7 @@ VitalsReading VitalsHub::sample() const {
 }
 
 void VitalsHub::shutdown() {
+    plate.shutdown();
     roi.shutdown();
     pressure.shutdown();
     thermal.shutdown();
