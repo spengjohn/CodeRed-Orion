@@ -29,7 +29,7 @@ function MetricCard({ to, tone, name, value, change, sub, visual }) {
   const parts = typeof value === 'string' ? [[value, '']] : value
 
   return (
-    <Link className="metric" to={to} style={{ '--m': `var(--${tone})` }}>
+    <Link className="metric" to={to} viewTransition style={{ '--m': `var(--${tone})` }}>
       <span className="m-top">
         <span className="m-icon">
           <svg viewBox="0 0 24 24" aria-hidden="true">

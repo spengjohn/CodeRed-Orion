@@ -177,6 +177,18 @@
   display: grid;
   gap: 16px;
   align-content: start;
+  animation: page-in 0.28s cubic-bezier(0.16, 1, 0.3, 1) both;
+}
+
+@keyframes page-in {
+  from {
+    opacity: 0;
+    transform: translateY(10px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
 }
 
 .page-head {
@@ -447,6 +459,7 @@
 .metric {
   --m: var(--primary);
   position: relative;
+  overflow: hidden;
   display: flex;
   flex-direction: column;
   gap: 7px;
@@ -461,19 +474,65 @@
   border-radius: calc(16px * var(--r));
   box-shadow: var(--shadow);
   transition:
-    transform 0.15s ease,
-    box-shadow 0.15s ease,
-    border-color 0.15s ease;
+    transform 0.22s cubic-bezier(0.34, 1.4, 0.64, 1),
+    box-shadow 0.22s ease,
+    border-color 0.2s ease,
+    background-color 0.2s ease;
 }
+
+/* Dynamic expanding ripple wave when clicked */
+.metric::after {
+  content: '';
+  position: absolute;
+  inset: -60%;
+  background: radial-gradient(circle, color-mix(in srgb, var(--m) 28%, transparent) 0%, transparent 60%);
+  opacity: 0;
+  transform: scale(0.3);
+  pointer-events: none;
+  border-radius: 50%;
+  transition: opacity 0.35s ease, transform 0.45s cubic-bezier(0.16, 1, 0.3, 1);
+}
+
 .metric:hover {
-  transform: translateY(-2px);
+  transform: translateY(-4px) scale(1.01);
   border-color: color-mix(in srgb, var(--m) 55%, var(--border));
-  box-shadow: var(--shadow-lift);
+  box-shadow:
+    0 8px 22px color-mix(in srgb, var(--m) 20%, transparent),
+    var(--shadow-lift);
 }
+
+.metric:hover .m-go {
+  transform: translateX(4px);
+  background: color-mix(in srgb, var(--m) 24%, transparent);
+}
+
+.metric:hover .m-icon {
+  transform: scale(1.12) rotate(-4deg);
+}
+
 .metric:active {
-  transform: translateY(1px);
-  box-shadow: 0 1px 2px color-mix(in srgb, var(--text) 10%, transparent);
+  transform: scale(0.96) translateY(1px);
+  border-color: var(--m);
+  border-bottom-color: var(--m);
+  background-color: color-mix(in srgb, var(--m) 8%, var(--surface));
+  box-shadow: 0 2px 6px color-mix(in srgb, var(--m) 25%, transparent);
+  transition-duration: 0.08s;
 }
+
+.metric:active::after {
+  opacity: 1;
+  transform: scale(1.5);
+  transition: 0s;
+}
+
+.metric:active .m-go {
+  transform: translateX(6px) scale(1.1);
+}
+
+.metric:active .m-icon {
+  transform: scale(0.9);
+}
+
 .metric:focus-visible {
   outline-color: var(--m);
 }
@@ -496,6 +555,10 @@
   display: grid;
   place-items: center;
   color: var(--m);
+  transition:
+    transform 0.25s cubic-bezier(0.34, 1.4, 0.64, 1),
+    background-color 0.2s ease,
+    color 0.2s ease;
 }
 .m-icon {
   width: 24px;
@@ -1280,5 +1343,31 @@
   }
   .tl-hint {
     margin-left: auto;
+  }
+}
+
+/* ---------- Route View Transitions ---------- */
+@supports (view-transition-name: none) {
+  ::view-transition-old(root) {
+    animation: 0.2s cubic-bezier(0.4, 0, 1, 1) both vt-fade-out;
+  }
+  ::view-transition-new(root) {
+    animation: 0.26s cubic-bezier(0.16, 1, 0.3, 1) both vt-fade-in;
+  }
+  @keyframes vt-fade-out {
+    to {
+      opacity: 0;
+      transform: scale(0.985);
+    }
+  }
+  @keyframes vt-fade-in {
+    from {
+      opacity: 0;
+      transform: translateY(10px) scale(0.995);
+    }
+    to {
+      opacity: 1;
+      transform: translateY(0) scale(1);
+    }
   }
 }
