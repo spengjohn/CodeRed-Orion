@@ -8,12 +8,25 @@ Units: ts = unix seconds, weight = kg, temperatures = Celsius.
 is_moving (the board's `moved` column) is sent as true/false.
 All decimal values are rounded to 2 places here, and only here, for both the
 dummy and the Tiger Data source (this also tidies history averages).
+A missing or invalid value (None, NaN, infinity) is sent as null: NaN is not
+valid JSON and breaks JSON.parse in the browser.
 
 """
 
+import math
+
+
 def _two_dp(value):
-    """float() fixes the type (int, Decimal, ... -> float); then round to 2 decimals."""
-    return round(float(value), 2)
+    """float() fixes the type (int, Decimal, ... -> float); then round to 2 decimals.
+
+    Returns None (JSON null) for missing or invalid values.
+    """
+    if value is None:
+        return None
+    number = float(value)
+    if math.isnan(number) or math.isinf(number):
+        return None
+    return round(number, 2)
 
 
 def to_reading(unix_time, baby_weight, ambient_temp, baby_temp, breaths_per_minute, is_moving):

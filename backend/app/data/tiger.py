@@ -52,11 +52,13 @@ LATEST_SQL = """
 # time_bucket() is TimescaleDB's GROUP BY-friendly rounding: time_bucket(60, t)
 # puts every row into the 60-second bucket that starts at or before t.
 # Vitals are averaged per bucket; moved is true if the baby moved at all in it.
+# NULLIF(x, 'NaN') makes avg() skip a NaN reading instead of turning the whole
+# bucket's average into NaN.
 HISTORY_SQL = """
     SELECT time_bucket(%(bucket)s::bigint, unix_time::bigint) AS bucket_start,
-           avg(weight)::float8,
-           avg(ambient_temp)::float8,
-           avg(baby_temp)::float8,
+           avg(NULLIF(weight, 'NaN'))::float8,
+           avg(NULLIF(ambient_temp, 'NaN'))::float8,
+           avg(NULLIF(baby_temp, 'NaN'))::float8,
            avg(breaths)::float8,
            bool_or(moved::int <> 0)
     FROM {table}
