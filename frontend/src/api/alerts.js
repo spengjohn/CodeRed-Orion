@@ -21,8 +21,13 @@ export function normalizeAlert(raw) {
   }
 }
 
-// What an alert is about, for its icon and color: codes 1-3 are temperature, 4-5 breathing.
+// What an alert is about, for its icon and color. The board sends 101 (no
+// breathing), 102 (baby temperature), 103 (room temperature) and 104 (baby
+// out of the crib); 1-5 are earlier test codes (1-3 temperature, 4-5 breathing).
+const KINDS = { 101: 'breath', 102: 'temp', 103: 'temp', 104: 'weight' }
+
 export function alertKind(code) {
+  if (KINDS[code]) return KINDS[code]
   if (code >= 1 && code <= 3) return 'temp'
   if (code >= 4 && code <= 5) return 'breath'
   return 'alert'

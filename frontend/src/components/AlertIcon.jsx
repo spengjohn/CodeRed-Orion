@@ -9,6 +9,12 @@ const PATHS = {
       <path d="M3 16h7" />
     </>
   ),
+  weight: (
+    <>
+      <rect x="3" y="4" width="18" height="16" rx="4" />
+      <path d="M8 10a5 5 0 0 1 8 0" />
+    </>
+  ),
   alert: (
     <>
       <path d="M12 4 2.5 20h19z" />
