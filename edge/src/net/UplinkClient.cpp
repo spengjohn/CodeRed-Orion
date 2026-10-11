@@ -189,6 +189,43 @@ bool UplinkClient::post_ir_frame(
     return true;
 }
 
+bool UplinkClient::send_emergency_alert(
+    int emergency_code,
+    const std::string& detail,
+    const std::string& snapshot_b64,
+    std::int64_t timestamp
+) {
+    std::lock_guard<std::mutex> lock(mu_);
+
+    if (!authenticated_ && !connect_locked()) {
+        last_ok_ = false;
+        return false;
+    }
+
+    std::ostringstream body;
+    body << "{\"event\":\"emergency\""
+         << ",\"emergency_code\":" << emergency_code
+         << ",\"emergency_type\":\"CODE_" << emergency_code << "\""
+         << ",\"detail\":\"" << detail << "\""
+         << ",\"snapshot\":\"" << snapshot_b64 << "\""
+         << ",\"timestamp\":" << timestamp
+         << "}\n";
+    const std::string payload = body.str();
+
+    if (!send_all_locked(payload.data(), payload.size())) {
+        close_locked();
+        if (!connect_locked() || !send_all_locked(payload.data(), payload.size())) {
+            last_ok_ = false;
+            last_error_ = "emergency alert send failed";
+            return false;
+        }
+    }
+
+    last_ok_ = true;
+    last_error_.clear();
+    return true;
+}
+
 bool UplinkClient::last_ok() const {
     std::lock_guard<std::mutex> lock(mu_);
     return last_ok_;

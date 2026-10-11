@@ -15,6 +15,12 @@ struct UplinkClient {
         const std::string& stream_id,
         const std::vector<std::uint8_t>& jpeg_bytes
     );
+    bool send_emergency_alert(
+        int emergency_code,
+        const std::string& detail,
+        const std::string& snapshot_b64,
+        std::int64_t timestamp
+    );
     bool last_ok() const;
     std::string last_error() const;
 

@@ -157,14 +157,22 @@ def _handle_edge_client(conn: socket.socket, addr: Tuple[str, int]) -> None:
 
                         details = parsed.get("details")
                         if not isinstance(details, dict):
-                            details = {}
+                            detail_str = parsed.get("detail") or parsed.get("details")
+                            details = {"message": str(detail_str)} if detail_str else {}
 
-                        emergency_type = str(parsed.get("emergency_type") or "UNKNOWN")
+                        emergency_code = parsed.get("emergency_code")
+                        emergency_type = str(
+                            parsed.get("emergency_type")
+                            or (f"CODE_{emergency_code}" if emergency_code is not None else "UNKNOWN")
+                        )
+
+                        # Support snapshot as raw trailing bytes or base64 string inside JSON
+                        snapshot_payload = snapshot_bytes if snapshot_bytes else parsed.get("snapshot", "")
 
                         logger.info(
-                            "[Video Relay] 🚨 Emergency received on video stream: type=%s snapshot=%d bytes",
+                            "[Video Relay] 🚨 Emergency received on video stream: type=%s (code=%s)",
                             emergency_type,
-                            len(snapshot_bytes),
+                            emergency_code,
                         )
 
                         from app.alerts.dispatcher import handle_emergency
@@ -172,7 +180,7 @@ def _handle_edge_client(conn: socket.socket, addr: Tuple[str, int]) -> None:
                             emergency_type=emergency_type,
                             timestamp=timestamp,
                             details=details,
-                            snapshot_bytes=snapshot_bytes,
+                            snapshot_bytes=snapshot_payload,
                         )
                         # Immediately continue so next video frames stream uninterrupted
                         continue

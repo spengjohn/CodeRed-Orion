@@ -8,6 +8,12 @@
 #include "pipeline/IrStreamPipeline.hpp"
 #include "vision/CameraFusion.hpp"
 #include "vitals/VitalsHub.hpp"
+#include "alerts/AlertManager.hpp"
+#include "alerts/ApneaDetector.hpp"
+#include "alerts/BabyThermalAlertDetector.hpp"
+#include "alerts/AmbientThermalAlertDetector.hpp"
+#include "alerts/BedAbsenceDetector.hpp"
+#include "util/Base64.hpp"
 
 #include <chrono>
 #include <cmath>
@@ -76,12 +82,6 @@ int main() {
         }
     }
 
-    const int interval_sec = cfg.vitals_interval_sec > 0 ? cfg.vitals_interval_sec : 60;
-    auto next_vitals_at = std::chrono::steady_clock::now()
-        + std::chrono::seconds(interval_sec);
-    auto next_breath_log_at = std::chrono::steady_clock::now()
-        + std::chrono::seconds(1);
-
     double ambient_sum = 0.0;
     int ambient_count = 0;
     float last_good_ambient = 0.0f;
@@ -91,6 +91,31 @@ int main() {
     int weight_count = 0;
     float last_good_weight = 0.0f;
     bool have_last_good_weight = false;
+
+    AlertManager alert_mgr;
+    auto apnea_det = std::make_shared<ApneaDetector>(hub.breath);
+    auto baby_thermal_det = std::make_shared<BabyThermalAlertDetector>(baby_track);
+    auto ambient_thermal_det = std::make_shared<AmbientThermalAlertDetector>(
+        [&last_good_ambient, &have_last_good_ambient]() {
+            return have_last_good_ambient ? last_good_ambient : 0.0f;
+        }
+    );
+    auto bed_det = std::make_shared<BedAbsenceDetector>(
+        [&last_good_weight, &have_last_good_weight]() {
+            return have_last_good_weight ? last_good_weight : 0.0f;
+        }
+    );
+
+    alert_mgr.register_detector(apnea_det);
+    alert_mgr.register_detector(baby_thermal_det);
+    alert_mgr.register_detector(ambient_thermal_det);
+    alert_mgr.register_detector(bed_det);
+
+    const int interval_sec = cfg.vitals_interval_sec > 0 ? cfg.vitals_interval_sec : 60;
+    auto next_vitals_at = std::chrono::steady_clock::now()
+        + std::chrono::seconds(interval_sec);
+    auto next_breath_log_at = std::chrono::steady_clock::now()
+        + std::chrono::seconds(1);
 
     std::cout
         << "lidar init demo=" << (hub.lidar.demo_mode ? 1 : 0)
@@ -130,6 +155,15 @@ int main() {
             last_good_weight = load.weight_kg;
             have_last_good_weight = true;
         }
+
+        // Advance alert state machine: detectors sample on interval, slide window, and evaluate check()
+        const std::string alert_snapshot = ir_stream.jpeg.empty() ? "" : base64::encode(ir_stream.jpeg);
+        alert_mgr.tick(alert_snapshot, [&](int code, const std::string& detail, const std::string& snap, int64_t ts) {
+            if (cfg.uplink_enabled) {
+                return uplink.send_emergency_alert(code, detail, snap, ts);
+            }
+            return false;
+        });
 
         const auto now = std::chrono::steady_clock::now();
         if (now >= next_breath_log_at) {
