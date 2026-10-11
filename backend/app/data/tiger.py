@@ -51,7 +51,8 @@ LATEST_SQL = """
 
 # time_bucket() is TimescaleDB's GROUP BY-friendly rounding: time_bucket(60, t)
 # puts every row into the 60-second bucket that starts at or before t.
-# Vitals are averaged per bucket; moved is true if the baby moved at all in it.
+# Vitals are averaged per bucket; moved is true if the baby moved at all in it,
+# and the last column is the share of the bucket's readings that were moving (0-1).
 # NULLIF(x, 'NaN') makes avg() skip a NaN reading instead of turning the whole
 # bucket's average into NaN.
 HISTORY_SQL = """
@@ -60,7 +61,8 @@ HISTORY_SQL = """
            avg(NULLIF(ambient_temp, 'NaN'))::float8,
            avg(NULLIF(baby_temp, 'NaN'))::float8,
            avg(breaths)::float8,
-           bool_or(moved::int <> 0)
+           bool_or(moved::int <> 0),
+           avg((moved::int <> 0)::int)::float8
     FROM {table}
     WHERE unix_time >= %(since)s
     GROUP BY bucket_start
@@ -113,6 +115,8 @@ def get_history(range_s=3600, bucket_s=60):
     Same output as dummy.get_history(), except buckets with no rows are skipped
     (gaps) instead of being filled in. The board writes about once a minute, so
     use buckets of 60 s or more.
+    Each point also has movingShare: the share of the bucket's readings where
+    the baby was moving (0-1), for the dashboard timeline.
     """
     query = _query(HISTORY_SQL)
     now = int(time.time())
@@ -120,4 +124,7 @@ def get_history(range_s=3600, bucket_s=60):
     since = start - start % bucket_s  # align to bucket boundaries, like dummy.py
     with _get_pool().connection() as conn:
         rows = conn.execute(query, {"bucket": bucket_s, "since": since}).fetchall()
-    return [to_reading(*row) for row in rows]
+    return [
+        {**to_reading(*row[:6]), "movingShare": round(row[6] or 0.0, 3)}
+        for row in rows
+    ]
