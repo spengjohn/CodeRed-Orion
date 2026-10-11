@@ -8,6 +8,7 @@ can register their phone numbers for live demo alerts.
 import re
 import logging
 from flask import Blueprint, jsonify, request
+from app.auth.auth import require_auth
 
 from app.alerts.recipients import add_recipient, get_recipients, clear_recipients
 
@@ -20,6 +21,7 @@ _PHONE_RE = re.compile(r"^\+[1-9]\d{6,14}$")
 
 
 @bp.route("/recipients", methods=["POST"])
+@require_auth
 def add_phone():
     """
     Register a phone number to receive emergency alerts.
@@ -47,6 +49,7 @@ def add_phone():
 
 
 @bp.route("/recipients", methods=["GET"])
+@require_auth
 def list_phones():
     """
     List all active (non-expired) registered phone numbers.
@@ -58,6 +61,7 @@ def list_phones():
 
 
 @bp.route("/recipients", methods=["DELETE"])
+@require_auth
 def clear_phones():
     """
     Clear all registered phone numbers.

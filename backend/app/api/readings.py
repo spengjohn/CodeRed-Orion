@@ -6,6 +6,7 @@ import math
 from flask import Blueprint, jsonify, request
 
 from app.data import get_history, get_latest
+from app.auth.auth import require_auth
 
 bp = Blueprint("readings", __name__, url_prefix="/api/readings")
 
@@ -14,6 +15,7 @@ MAX_POINTS = 2000            # cap chart points per response
 
 
 @bp.get("/latest")
+@require_auth
 def latest():
     """GET /api/readings/latest -> one reading (404 if the table is still empty)."""
     reading = get_latest()
@@ -23,6 +25,7 @@ def latest():
 
 
 @bp.get("/history")
+@require_auth
 def history():
     """GET /api/readings/history?range=3600&bucket=60 (both in seconds)."""
     try:
