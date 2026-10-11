@@ -164,7 +164,7 @@ int main() {
             } else {
                 reading.baby_temp = 0.0f;
             }
-            reading.breaths = 0;
+            reading.breaths = hub.breath.consume_minute_count();
             reading.moved = false;
 
             const bool ok = timeseries.post_vitals(reading);
