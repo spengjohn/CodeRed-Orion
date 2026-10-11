@@ -523,6 +523,14 @@
 .m-sub {
   color: var(--muted);
 }
+/* 3D baby on the Activity card (BabyMotion). */
+.m-visual {
+  display: block;
+  height: 72px;
+  canvas {
+    display: block;
+  }
+}
 
 @media (max-width: 900px) {
   .video {

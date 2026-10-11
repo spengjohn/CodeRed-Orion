@@ -24,7 +24,8 @@ const ICONS = {
 // value: [[number, unit], ...] pairs, or a plain string like "Still".
 // change: { value: "−0.2°", label: "since 1 hr" }, shown when present.
 // sub: an optional extra line, e.g. the room temperature.
-function MetricCard({ to, tone, name, value, change, sub }) {
+// visual: optional element shown under the value, e.g. the 3D baby on the Activity card.
+function MetricCard({ to, tone, name, value, change, sub, visual }) {
   const parts = typeof value === 'string' ? [[value, '']] : value
 
   return (
@@ -52,6 +53,7 @@ function MetricCard({ to, tone, name, value, change, sub }) {
             ))
           : '--'}
       </span>
+      {visual}
       {change && (
         <span className="m-change">
           <i>{change.value}</i>

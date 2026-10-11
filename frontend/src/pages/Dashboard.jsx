@@ -1,3 +1,4 @@
+import { lazy, Suspense } from 'react'
 import CribVideo from '../components/CribVideo'
 import MetricCard from '../components/MetricCard'
 import { useFormatters } from '../hooks/useFormatters'
@@ -5,6 +6,9 @@ import { useLiveReadings } from '../hooks/useLiveReadings'
 import { SNAPSHOT_INTERVAL_MS, useReadings } from '../hooks/useReadings'
 import { change, currentActivity } from '../utils/series'
 import { formatDuration } from '../utils/time'
+
+// three.js is large, so the Activity card's 3D baby loads in its own chunk.
+const BabyMotion = lazy(() => import('../components/BabyMotion'))
 
 const HOUR_MS = 60 * 60 * 1000
 const DAY_MS = 24 * HOUR_MS
@@ -81,6 +85,11 @@ function Dashboard() {
             name="Activity"
             value={latest ? (latest.isMoving ? 'Moving' : 'Still') : []}
             change={activityLine(currentActivity(readings, SNAPSHOT_INTERVAL_MS))}
+            visual={
+              <Suspense fallback={<span className="m-visual" />}>
+                <BabyMotion isMoving={Boolean(latest?.isMoving)} />
+              </Suspense>
+            }
           />
           <MetricCard
             to="/analytics/weight"
