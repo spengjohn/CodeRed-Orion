@@ -85,6 +85,8 @@ When the board sends an alert, the backend saves it to the `alerts` table, calls
     "details": {"bpm": 9}, "hasSnapshot": true, "snapshotUrl": "/api/alerts/19/snapshot" } ] }
 ```
 
+**Clear the log:** `DELETE /api/alerts?before=1791712726` deletes alerts (and their snapshots) at or before `before` (unix seconds); without `before` it deletes all of them. Returns `{"message": "Alerts cleared", "removed": 3}`, 400 if `before` isn't an integer, 503 if the database is unreachable.
+
 **Snapshot image:** `GET /api/alerts/<id>/snapshot` returns the JPEG (404 if none). An `<img src>` can't send the token, so fetch it and use a blob URL:
 ```ts
 const res = await fetch(`${API}${alert.snapshotUrl}`, { headers: { Authorization: `Bearer ${token}` } });

@@ -59,3 +59,5 @@ export const get = (path) => request(path)
 
 export const put = (path, body) =>
   request(path, { method: 'PUT', body: JSON.stringify(body) })
+
+export const del = (path) => request(path, { method: 'DELETE' })

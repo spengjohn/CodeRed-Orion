@@ -3,7 +3,7 @@ REST API endpoints for emergency alerts.
 
 Provides POST/GET/DELETE on /api/alerts/recipients so judges and parents
 can register their phone numbers for live demo alerts, plus the alert log
-(GET /api/alerts) and each alert's snapshot image for the frontend.
+(GET/DELETE /api/alerts) and each alert's snapshot image for the frontend.
 """
 
 import re
@@ -12,7 +12,7 @@ from flask import Blueprint, Response, jsonify, request
 from app.auth.auth import require_auth
 
 from app.alerts.recipients import add_recipient, get_recipients, clear_recipients
-from app.alerts.db import get_alert_snapshot, list_alerts
+from app.alerts.db import delete_alerts, get_alert_snapshot, list_alerts
 from app.data.format import to_alert_record
 
 logger = logging.getLogger(__name__)
@@ -50,6 +50,29 @@ def alert_log():
         for alert_id, code, detail, ts, has_snapshot in rows  # column order from list_alerts()
     ]
     return jsonify({"alerts": alerts, "count": len(alerts)}), 200
+
+
+@bp.route("", methods=["DELETE"])
+@require_auth
+def clear_alert_log():
+    """
+    Delete alerts from the log: DELETE /api/alerts?before=<unix seconds>
+
+    Only alerts at or before `before` are removed, so ones that arrived after the
+    user loaded the page are kept. Without it, every alert is removed.
+    Returns 200 {"message": ..., "removed": n}.
+    """
+    before = request.args.get("before")
+    if before is not None:
+        try:
+            before = int(before)
+        except ValueError:
+            return jsonify({"error": "before must be an integer (unix seconds)"}), 400
+
+    removed = delete_alerts(before)
+    if removed is None:
+        return jsonify({"error": "alert log unavailable (database not reachable)"}), 503
+    return jsonify({"message": "Alerts cleared", "removed": removed}), 200
 
 
 @bp.route("/<int:alert_id>/snapshot", methods=["GET"])

@@ -1,9 +1,9 @@
 import { act, renderHook, waitFor } from '@testing-library/react'
-import { getAlerts } from '../api/alerts'
+import { clearAlerts, getAlerts } from '../api/alerts'
 import { connectAlerts } from '../api/live'
 import { mergeAlerts, useAlerts } from './useAlerts'
 
-jest.mock('../api/alerts', () => ({ getAlerts: jest.fn() }))
+jest.mock('../api/alerts', () => ({ getAlerts: jest.fn(), clearAlerts: jest.fn() }))
 jest.mock('../api/live', () => ({ connectAlerts: jest.fn() }))
 
 const alert = (id, ts) => ({ id, ts, code: 4, description: 'x', details: {}, hasSnapshot: false, image: null })
@@ -33,6 +33,43 @@ test('loads the log, then adds live alerts without duplicating ones already load
 
   unmount()
   expect(close).toHaveBeenCalled()
+})
+
+test('clear deletes up to the newest listed alert and keeps ones that arrive meanwhile', async () => {
+  let pushAlert
+  connectAlerts.mockImplementation((onAlert) => {
+    pushAlert = onAlert
+    return () => {}
+  })
+  getAlerts.mockResolvedValue([alert(2, 200), alert(1, 100)])
+  let finishDelete
+  clearAlerts.mockImplementation(() => new Promise((resolve) => (finishDelete = resolve)))
+
+  const { result } = renderHook(() => useAlerts())
+  await waitFor(() => expect(result.current.loading).toBe(false))
+
+  let cleared
+  act(() => {
+    cleared = result.current.clear()
+  })
+  expect(clearAlerts).toHaveBeenCalledWith(200)
+  act(() => pushAlert(alert(3, 300))) // arrives while the delete is in flight
+  await act(async () => {
+    finishDelete(2)
+    await cleared
+  })
+  expect(result.current.alerts.map((a) => a.id)).toEqual([3])
+})
+
+test('clear passes on a failed delete and keeps the list', async () => {
+  connectAlerts.mockReturnValue(() => {})
+  getAlerts.mockResolvedValue([alert(1, 100)])
+  clearAlerts.mockRejectedValue(new Error('The server ran into a problem.'))
+
+  const { result } = renderHook(() => useAlerts())
+  await waitFor(() => expect(result.current.loading).toBe(false))
+  await expect(act(() => result.current.clear())).rejects.toThrow('The server ran into a problem.')
+  expect(result.current.alerts.map((a) => a.id)).toEqual([1])
 })
 
 test('reports a failed load', async () => {

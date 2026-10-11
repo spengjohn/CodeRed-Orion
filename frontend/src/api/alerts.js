@@ -1,4 +1,4 @@
-import { BASE_URL, get, getAccessToken } from './client'
+import { BASE_URL, del, get, getAccessToken } from './client'
 
 // Alert shapes from the backend (backend/app/data/format.py, alerts/dispatcher.py):
 // - log entry (GET /alerts): { id, code, description, ts, details, hasSnapshot, snapshotUrl }
@@ -43,6 +43,13 @@ export function alertTitle(description) {
 export async function getAlerts(limit = 50) {
   const { alerts } = await get(`/alerts?limit=${limit}`)
   return alerts.map(normalizeAlert)
+}
+
+// Delete alerts at or before beforeMs (and their snapshots) from the log.
+// Returns how many the backend removed.
+export async function clearAlerts(beforeMs) {
+  const { removed } = await del(`/alerts?before=${Math.floor(beforeMs / 1000)}`)
+  return removed
 }
 
 // One alert's snapshot as an object URL for <img src>. The route needs the

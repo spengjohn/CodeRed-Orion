@@ -1,4 +1,13 @@
-import { alertKind, alertTitle, normalizeAlert } from './alerts'
+import { alertKind, alertTitle, clearAlerts, normalizeAlert } from './alerts'
+import { del } from './client'
+
+jest.mock('./client', () => ({ BASE_URL: '/api', get: jest.fn(), del: jest.fn(), getAccessToken: jest.fn() }))
+
+test('clearAlerts sends the cutoff in seconds and returns how many were removed', async () => {
+  del.mockResolvedValue({ message: 'Alerts cleared', removed: 3 })
+  await expect(clearAlerts(1791712726999)).resolves.toBe(3)
+  expect(del).toHaveBeenCalledWith('/alerts?before=1791712726')
+})
 
 test('normalizes a log entry from GET /alerts', () => {
   expect(

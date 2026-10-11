@@ -198,6 +198,43 @@ def list_alerts(limit: int = 50) -> Optional[List[tuple]]:
             pass
 
 
+def delete_alerts(before: Optional[int] = None) -> Optional[int]:
+    """
+    Delete alerts (snapshots included) at or before `before` (unix seconds), or all
+    of them if it's None. Returns the number removed, or None if the database is
+    unavailable or the delete failed.
+    """
+    table = _get_table_name()
+    if not _TABLE_NAME_RE.match(table):
+        logger.error("[DB] Invalid alert table name %r.", table)
+        return None
+
+    conn = _get_connection()
+    if conn is None:
+        return None
+    try:
+        with conn:
+            with conn.cursor() as cur:
+                if before is None:
+                    cur.execute(f'DELETE FROM "{table}"')
+                else:
+                    cur.execute(
+                        f'DELETE FROM "{table}" WHERE timestamp <= to_timestamp(%s)',
+                        (before,),
+                    )
+                removed = cur.rowcount
+        logger.info("[DB] Cleared %d alert(s) from '%s' (before=%s)", removed, table, before)
+        return removed
+    except Exception as exc:
+        logger.error("[DB] Failed to clear alerts from '%s': %s", table, exc)
+        return None
+    finally:
+        try:
+            conn.close()
+        except Exception:
+            pass
+
+
 def get_alert_snapshot(alert_id: int) -> Optional[bytes]:
     """Snapshot bytes for one alert, or None if missing, empty or unavailable."""
     table = _get_table_name()

@@ -1,5 +1,5 @@
-import { useEffect, useState } from 'react'
-import { getAlerts } from '../api/alerts'
+import { useCallback, useEffect, useState } from 'react'
+import { clearAlerts, getAlerts } from '../api/alerts'
 import { connectAlerts } from '../api/live'
 
 // Add alerts to a newest-first list, skipping ones already in it (a live alert
@@ -31,5 +31,14 @@ export function useAlerts({ limit = 50 } = {}) {
     }
   }, [limit])
 
-  return { alerts, loading, error }
+  // Delete the listed alerts from the log. Only those up to the newest one
+  // shown, so a live alert arriving meanwhile isn't removed unseen. Throws on failure.
+  const clear = useCallback(async () => {
+    if (alerts.length === 0) return
+    const newest = alerts[0].ts
+    await clearAlerts(newest)
+    setAlerts((list) => list.filter((a) => a.ts > newest))
+  }, [alerts])
+
+  return { alerts, loading, error, clear }
 }
