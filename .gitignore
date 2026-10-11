@@ -7,3 +7,6 @@ __pycache__/
 .env
 *.pem
 .DS_Store
+
+# Phone numbers registered for alert calls (personal data, written by the backend)
+backend/app/alerts/recipients.json
