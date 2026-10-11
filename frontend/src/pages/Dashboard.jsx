@@ -1,6 +1,7 @@
 import { lazy, Suspense } from 'react'
 import CribVideo from '../components/CribVideo'
 import MetricCard from '../components/MetricCard'
+import NightTimeline from '../components/NightTimeline'
 import { useFormatters } from '../hooks/useFormatters'
 import { useLiveReadings } from '../hooks/useLiveReadings'
 import { SNAPSHOT_INTERVAL_MS, useReadings } from '../hooks/useReadings'
@@ -107,6 +108,8 @@ function Dashboard() {
           />
         </div>
       </div>
+
+      <NightTimeline liveReadings={readings} now={now} />
     </section>
   )
 }
