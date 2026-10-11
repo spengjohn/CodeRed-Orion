@@ -49,9 +49,16 @@ int main() {
     fusion.init();
     coral.init();
     maestro.init();
-    uplink.init(cfg);
-    ir_stream.init(cfg, camera, fusion, uplink);
-    baby_track.init(camera, coral, hub.thermal, maestro, hub.roi);
+    if (cfg.uplink_enabled) {
+        uplink.init(cfg);
+        if (!uplink.last_ok()) {
+            std::cerr << "video uplink not connected yet: " << uplink.last_error() << '\n';
+        }
+        ir_stream.init(cfg, camera, fusion, uplink);
+    }
+    if (cfg.tracking_enabled) {
+        baby_track.init(camera, coral, hub.thermal, maestro, hub.roi);
+    }
 
     TimeseriesClient timeseries;
     if (cfg.timeseries_enabled) {

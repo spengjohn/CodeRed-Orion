@@ -1,6 +1,10 @@
 #pragma once
 
+#include <atomic>
+#include <condition_variable>
 #include <cstdint>
+#include <mutex>
+#include <thread>
 #include <vector>
 
 #include "config/Config.hpp"
@@ -27,4 +31,15 @@ struct IrStreamPipeline {
     bool render_frame();
     bool encode_frame();
     bool upload_frame();
+
+private:
+    std::mutex uplink_mu_;
+    std::condition_variable uplink_cv_;
+    std::vector<std::uint8_t> uplink_jpeg_;
+    bool uplink_has_job_ = false;
+    std::atomic<bool> uplink_stop_{false};
+    std::thread uplink_worker_;
+
+    void start_worker();
+    void stop_worker();
 };

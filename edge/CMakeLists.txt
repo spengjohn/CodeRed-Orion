@@ -20,6 +20,7 @@ set(EDGE_SOURCES
     src/net/UplinkClient.cpp
     src/pipeline/BabyTrackPipeline.cpp
     src/pipeline/IrStreamPipeline.cpp
+    src/util/Base64.cpp
     src/vision/BreathMonitor.cpp
     src/vision/CameraFusion.cpp
     src/vision/ThermalRoiSampler.cpp
