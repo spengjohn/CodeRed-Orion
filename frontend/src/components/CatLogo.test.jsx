@@ -14,7 +14,14 @@ it('is labelled when given a title', () => {
 })
 
 it('renders the 3×3 loader as a status', () => {
-  const { container } = render(<CatLoader />)
+  render(<CatLoader />)
+  const status = screen.getByRole('status')
+  expect(status.querySelectorAll('svg')).toHaveLength(9)
+  expect(status).toHaveTextContent('Loading…')
+})
+
+it('renders inline in its parent when asked', () => {
+  const { container } = render(<CatLoader inline label="Loading snapshot…" />)
   expect(container.querySelectorAll('svg')).toHaveLength(9)
-  expect(screen.getByRole('status')).toHaveTextContent('Loading…')
+  expect(screen.getByRole('status')).toHaveTextContent('Loading snapshot…')
 })

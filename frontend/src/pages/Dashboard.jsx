@@ -1,4 +1,4 @@
-import { lazy, Suspense, useEffect } from 'react'
+import { lazy, Suspense, useEffect, useState } from 'react'
 import CribVideo from '../components/CribVideo'
 import MetricCard from '../components/MetricCard'
 import NightTimeline from '../components/NightTimeline'
@@ -45,16 +45,24 @@ function Dashboard() {
   // Load the analytics pages up front so a metric card can expand straight into one.
   useEffect(preloadAnalytics, [])
 
+  // Reported by CribVideo, so the page doesn't re-render on every frame.
+  const [cameraOffline, setCameraOffline] = useState(false)
+
+  // Name what stopped: the vitals sensors, the camera, or both.
+  const offlineTitle =
+    isStale && cameraOffline
+      ? 'Monitor offline'
+      : isStale
+        ? 'Sensors offline'
+        : cameraOffline
+          ? 'Camera offline'
+          : null
+
   const problem = !isConnected
     ? hasData || isStale || error
       ? { title: 'Disconnected', detail: 'trying to reconnect' }
       : null
-    : isStale
-      ? {
-          title: 'Sensor offline',
-          detail: latest ? `last reading ${fmt.relative(latest.ts, now)}` : 'no readings yet',
-        }
-      : null
+    : offlineTitle && { title: offlineTitle, detail: 'attempting to reconnect' }
 
   return (
     <section className="page dashboard">
@@ -73,7 +81,7 @@ function Dashboard() {
       {error && !hasData && <p className="error">Couldn't load readings: {error.message}</p>}
 
       <div className="dash-main">
-        <CribVideo now={now} />
+        <CribVideo now={now} onOfflineChange={setCameraOffline} />
 
         <div className="metrics">
           <MetricCard

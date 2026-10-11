@@ -5,10 +5,13 @@ const TICK_MS = 1000
 
 // The newest camera frame from the crib, as an <img> src. The feed counts as
 // live while frames keep arriving; staleness uses when each frame arrived,
-// not its ts, so the edge device's clock doesn't matter.
+// not its ts, so the edge device's clock doesn't matter. isOffline is true once
+// no frame has arrived for staleAfterMs (counting from mount if none ever did),
+// so it doesn't flash on while the first frame is on its way.
 // The backend sends frame as a ready data URL; bare base64 is accepted too.
 export function useCribFrames({ staleAfterMs = 5000 } = {}) {
   const [frame, setFrame] = useState(null)
+  const [mountedAt] = useState(() => Date.now())
   const [now, setNow] = useState(() => Date.now())
 
   useEffect(() => {
@@ -26,5 +29,6 @@ export function useCribFrames({ staleAfterMs = 5000 } = {}) {
   }, [])
 
   const isLive = frame !== null && Math.max(now, frame.receivedAt) - frame.receivedAt < staleAfterMs
-  return { src: frame?.src ?? null, isLive }
+  const isOffline = !isLive && now - (frame?.receivedAt ?? mountedAt) >= staleAfterMs
+  return { src: frame?.src ?? null, isLive, isOffline }
 }

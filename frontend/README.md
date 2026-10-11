@@ -61,7 +61,7 @@ Put an Auth0 access token for the backend's API in `.env` as `DEV_AUTH_TOKEN` (f
 
 On startup the dev server prints `Dev proxy → <backend> (DEV_AUTH_TOKEN attached)` and warns when the token has expired; paste a fresh one then. While you test, it also logs every backend call it forwards, for example `21:04:31.218  GET  /api/readings/history?range=3600&bucket=60  → 200  142 ms  [dev token]`, plus WebSocket opens and closes (Socket.IO events inside an open connection aren't shown). Set `DEV_PROXY_LOG=0` to turn this off. To develop against production, add `BACKEND_URL=https://whisker.health`.
 
-If Flask isn't running, pages show errors like `Couldn't load readings: GET /readings/history?... failed: 502` and the dashboard shows "Sensor offline".
+If Flask isn't running, pages show errors like `Couldn't load readings: GET /readings/history?... failed: 502` and the dashboard shows "Disconnected" or "Sensors offline".
 
 ## Deployment Plan
 
@@ -130,7 +130,7 @@ Range picker → request (`src/hooks/useReadings.js`):
 | Chart downsampling, min/avg/max stats, movement spans, activity series and stats | `src/utils/series.js` |
 | Preference-aware formatters for components | `src/hooks/useFormatters.js` |
 | History by range (1h/24h/7d/14d/30d) | `src/hooks/useReadings.js` |
-| Dashboard live data and duplicate-reading filtering. Status: **Disconnected** when Socket.IO is down; **Sensor offline** when the newest reading's `ts` is more than 3 minutes old (works even though the backend keeps re-pushing the last row) | `src/hooks/useLiveReadings.js` |
+| Dashboard live data and duplicate-reading filtering. Status: **Disconnected** when Socket.IO is down; **Sensors offline** when the newest reading's `ts` is more than 3 minutes old, **Camera offline** when no video frame has arrived for 5 seconds, **Monitor offline** when both (works even though the backend keeps re-pushing the last row) | `src/hooks/useLiveReadings.js` |
 | Activity chart data and stats by range | `src/hooks/useActivity.js` |
 | Charts (Recharts), themed from the tokens | `src/components/MetricChart.jsx`, `AnalyticsView.jsx`, `ActivityChart.jsx`, `chartStyle.js`, `src/hooks/useThemeColors.js` |
 | Dashboard metric cards | `src/components/MetricCard.jsx` |
@@ -188,7 +188,7 @@ Supertest doesn't support Socket.IO, so the live test uses `socket.io-client` di
 
 ## Backend Requests
 
-Changes the frontend needs from the backend team (the frontend doesn't edit `backend/`):
+Open backend changes the frontend needs:
 
 1. **Fix Socket.IO through nginx (blocking production).** On `https://whisker.health`, every `/socket.io/` request (e.g. `/socket.io/?EIO=4&transport=polling`) returns **500 from nginx** itself, with or without an `Origin` header, while `/api/*` works. Add a `location /socket.io/` that proxies to Flask with `proxy_http_version 1.1;`, `proxy_set_header Upgrade $http_upgrade;`, `proxy_set_header Connection "upgrade";` and `proxy_set_header Host $host;`, then check nginx's error log for the current 500. Alternatively start Socket.IO with `path="/api/socket.io"` (then change `SOCKET_PATH` in `src/api/live.js`). Unblocks: live readings and video in production and when developing against it. Separately, `http://18.223.70.95/` serves nginx's default site (404) and `https://18.223.70.95/` returns 502; fine if only the domain is meant to work.
 2. **Add a movement fraction to history buckets**, e.g. `movingFraction` = fraction of minutes in the bucket with movement (average of `is_moving`, 0–1), alongside `isMoving` in `backend/app/data/dummy.py` and the future Tiger Data query. Currently a bucket is "moving" if any minute in it had movement, so on long ranges nearly every bucket is marked moving. Unblocks: meaningful activity % and still-only weight stats on 24h+ ranges.
@@ -207,7 +207,7 @@ Changes the frontend needs from the backend team (the frontend doesn't edit `bac
 
 - **Activity on long ranges:** history buckets are marked moving if any movement occurred, so on 24h+ ranges the activity chart is mostly 100%, activity % is inflated, and weight stats fall back to using all readings (Backend Request 2).
 - **Dummy data is per-second:** until Backend Request 4, dev data has a new reading every second, so the dashboard's "Last reading" and 1h charts update faster and look smoother than real minute snapshots will.
-- **Clock-based offline check:** "Sensor offline" compares the reading's `ts` to this device's clock, so a device clock more than a few minutes off could show it wrongly.
+- **Clock-based offline check:** "Sensors offline" compares the reading's `ts` to this device's clock, so a device clock more than a few minutes off could show it wrongly.
 - **Video is JPEG frames, not WebRTC:** ~12 base64 frames a second over Socket.IO uses more bandwidth than a video codec and has no audio; fine for the demo.
 - **Demo mode needs `DEV_AUTH_TOKEN` for data:** without `VITE_AUTH0_*` the browser has no token, so the backend refuses Socket.IO, and once Backend Request 3 lands, REST too. `DEV_AUTH_TOKEN` fixes this in `npm run dev` only; a built site needs Auth0 ([Auth0 setup](#auth0-setup)).
 - **No live data from production yet:** whisker.health's nginx returns 500 for Socket.IO (Backend Request 1), so against it the dashboard loads history but shows Disconnected and Camera offline.
@@ -234,7 +234,7 @@ At-a-glance view of the baby's current status:
   - Activity: moving or still, and how long (e.g. "3 min since moving") → Activity analytics
   - Weight: last still reading and change this week (from 7d history) → Weight analytics
   - Breathing: breaths per minute and change since 1 hr → Breathing analytics
-- **Status**: the badge on the video shows Live while camera frames are arriving, else Offline; an alert banner appears for Sensor offline (newest reading over 3 minutes old) or Disconnected (no connection to the backend); the header shows how long ago the last reading was taken
+- **Status**: the badge on the video shows Live while camera frames are arriving, else Offline; an alert banner appears for Sensors offline (newest reading over 3 minutes old), Camera offline (no video frame for 5 seconds), Monitor offline (both) or Disconnected (no connection to the backend); the header shows how long ago the last reading was taken
 
 ### Analytics Pages
 One page per metric, each with a back arrow to the dashboard beside the heading, a 1h / 24h / 7d / 14d / 30d range picker, a chart with movement shaded, and min/avg/max for the range:

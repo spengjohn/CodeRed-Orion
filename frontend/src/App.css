@@ -59,6 +59,10 @@
   place-items: center;
   pointer-events: none;
 }
+.cat-loader-inline {
+  display: grid;
+  place-items: center;
+}
 .cat-loader {
   display: grid;
   grid-template-columns: repeat(3, var(--tile));
@@ -171,13 +175,17 @@
 }
 
 .page {
-  max-width: 1040px;
+  max-width: 800px;
   margin: 0 auto;
   padding: 12px 16px 40px;
   display: grid;
   gap: 16px;
   align-content: start;
   animation: page-in 0.28s cubic-bezier(0.16, 1, 0.3, 1) both;
+}
+/* The dashboard's two-column layout needs the full width. */
+.page.dashboard {
+  max-width: 1040px;
 }
 
 @keyframes page-in {
@@ -654,6 +662,34 @@
   padding: 14px 8px 8px 0;
 }
 
+.chart-legend {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: center;
+  gap: 6px 16px;
+  padding: 4px 0 0;
+  color: var(--muted);
+  font-size: 12px;
+
+  span {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+  }
+  i {
+    width: 14px;
+    border-radius: 4px;
+  }
+  i.line {
+    height: 3px;
+  }
+  i.moving {
+    height: 14px;
+    background: color-mix(in srgb, var(--activity) 15%, transparent);
+  }
+}
+
 .stats {
   display: grid;
   grid-template-columns: repeat(auto-fit, minmax(160px, 1fr));
@@ -919,6 +955,24 @@
 }
 
 /* Log page */
+.alerts-toolbar {
+  display: flex;
+  justify-content: flex-end;
+  margin-bottom: 8px;
+}
+.alerts-clear {
+  background: var(--surface);
+  color: var(--text);
+  border-color: var(--border);
+  box-shadow: var(--shadow);
+}
+.alerts-clear:hover {
+  border-color: color-mix(in srgb, var(--text) 25%, var(--border));
+}
+.alerts-clear:disabled {
+  opacity: 0.6;
+  cursor: default;
+}
 .alert-log {
   display: grid;
   gap: 10px;
@@ -959,6 +1013,11 @@
   margin-top: 6px;
   object-fit: cover;
   border-radius: calc(12px * var(--r));
+}
+.alert-snap-loading {
+  display: grid;
+  place-items: center;
+  background: var(--bg);
 }
 .alert-snap-btn {
   justify-self: start;
@@ -1250,6 +1309,11 @@
     object-fit: cover;
     border-radius: calc(12px * var(--r));
   }
+  .tl-popover-loading {
+    display: grid;
+    place-items: center;
+    background: var(--bg);
+  }
   .tl-popover-actions {
     display: flex;
     gap: 8px;
@@ -1258,6 +1322,22 @@
     .wbtn {
       flex: 1;
     }
+  }
+}
+
+/* Confirm dialog (ConfirmDialog.jsx), built on the popover above. */
+.confirm-dialog {
+  .error {
+    margin: 0;
+    font-size: 14px;
+  }
+  .wbtn:disabled {
+    opacity: 0.6;
+    cursor: default;
+  }
+  .confirm-danger {
+    background: var(--alert);
+    color: var(--onaccent);
   }
 }
 
