@@ -1,4 +1,6 @@
 build/
+build-coral/
+third_party/
 compile_commands.json
 *.o
 *.a

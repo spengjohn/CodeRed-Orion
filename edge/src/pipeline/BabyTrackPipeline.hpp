@@ -9,6 +9,10 @@
 #include "hardware/OV5647.hpp"
 #include "vision/ThermalRoiSampler.hpp"
 
+// Per-frame loop when TRACKING_ENABLED=1:
+//   pack RGB -> Coral detect/best_person -> thermal ROI -> pan/tilt error
+//   -> MaestroDriver::center_from_error so the baby stays framed center.
+
 struct BabyTrackPipeline {
     OV5647* camera = nullptr;
     CoralDriver* coral = nullptr;

@@ -9,3 +9,7 @@ TARGET_FPS=12
 JPEG_QUALITY=70
 UPLINK_ENABLED=1
 TRACKING_ENABLED=0
+# Baby track (Coral + Maestro): set TRACKING_ENABLED=1
+# Optional: CORAL_MODEL=models/tf2_ssd_mobilenet_v2_coco17_ptq_edgetpu.tflite
+# Optional: MAESTRO_PORT=/dev/serial0
+# Live TPU: run ./scripts/setup_coral_cpp.sh then ENABLE_CORAL=1 ./compile_and_run

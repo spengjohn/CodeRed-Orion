@@ -4,12 +4,25 @@ set -euo pipefail
 ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 cd "${ROOT}"
 
+if [[ -d /usr/local/lib/pkgconfig ]]; then
+  export PKG_CONFIG_PATH="/usr/local/lib/pkgconfig${PKG_CONFIG_PATH:+:$PKG_CONFIG_PATH}"
+fi
+if [[ -d /usr/local/lib ]]; then
+  export LD_LIBRARY_PATH="/usr/local/lib${LD_LIBRARY_PATH:+:$LD_LIBRARY_PATH}"
+fi
+
+if [[ -f third_party/coral/env.sh ]]; then
+  # shellcheck disable=SC1091
+  source third_party/coral/env.sh
+fi
+
 if [[ ! -f .env ]]; then
   echo "Missing .env — copy env_template.txt to .env and fill in values." >&2
   exit 1
 fi
 
 set -a
+# shellcheck disable=SC1091
 source .env
 set +a
 
@@ -23,13 +36,33 @@ if [[ -z "${TIGERDATA_URL:-}" ]]; then
   exit 1
 fi
 
+if [[ "${ENABLE_CORAL:-0}" == "1" ]]; then
+  if [[ ! -f third_party/coral/include/edgetpu.h ]]; then
+    echo "ENABLE_CORAL=1 but Edge TPU headers missing. Run ./scripts/setup_coral_cpp.sh" >&2
+    exit 1
+  fi
+  if [[ -z "${TENSORFLOW_SOURCE_DIR:-}" || ! -d "${TENSORFLOW_SOURCE_DIR}/tensorflow/lite" ]]; then
+    echo "ENABLE_CORAL=1 but TENSORFLOW_SOURCE_DIR incomplete. Run ./scripts/setup_coral_cpp.sh" >&2
+    exit 1
+  fi
+  echo "Building with Coral Edge TPU live path (CMake + HAS_EDGETPU)"
+  cmake -S . -B build-coral \
+    -DENABLE_CORAL=ON \
+    -DTENSORFLOW_SOURCE_DIR="${TENSORFLOW_SOURCE_DIR}"
+  cmake --build build-coral -j"$(nproc 2>/dev/null || echo 2)" --target edge
+  exec ./build-coral/edge "$@"
+fi
+
 LIBCAMERA_FLAGS=()
 if pkg-config --exists libcamera 2>/dev/null; then
   LIBCAMERA_FLAGS+=(-DHAS_LIBCAMERA)
+  # shellcheck disable=SC2207
   LIBCAMERA_FLAGS+=($(pkg-config --cflags --libs libcamera))
 else
   echo "warning: libcamera not found; OV5647 will use demo mode" >&2
 fi
+
+echo "Building edge (Coral demo mode — set ENABLE_CORAL=1 after setup_coral_cpp.sh for live TPU)"
 
 g++ -std=c++17 \
   -Isrc -Isrc/hardware -Isrc/hardware/mlx90640 \

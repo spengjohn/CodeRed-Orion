@@ -2,6 +2,21 @@
 
 #include <cstdint>
 
+// Pololu Mini Maestro servo controller over UART (Compact Protocol).
+// Live path opens MAESTRO_PORT or /dev/serial0…; demo animates targets offline.
+//
+// Wiring on Pi 4 primary UART — physical pins 8 / 10:
+//   Maestro RX  -> Pin 8  (GPIO14 / UART TX)
+//   Maestro TX  -> Pin 10 (GPIO15 / UART RX)
+//   Maestro GND -> Pi GND
+//
+// Channels: 0 = pan (yaw), 1 = tilt (pitch). Baud 9600 Compact Protocol.
+// Override port: MAESTRO_PORT=/dev/serial0
+//
+// Baby centering: center_from_error(pan, tilt) with errors in [-1, 1].
+//   Positive pan_error  -> baby right of center -> pan right
+//   Positive tilt_error -> baby below center    -> tilt down
+
 struct MaestroDriver {
     static constexpr int baud = 9600;
     static constexpr int servo_count = 2;

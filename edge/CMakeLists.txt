@@ -5,6 +5,8 @@ set(CMAKE_CXX_STANDARD 17)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
 set(CMAKE_EXPORT_COMPILE_COMMANDS ON)
 
+option(ENABLE_CORAL "Build Coral Edge TPU live path (needs TensorFlow source)" OFF)
+
 set(EDGE_SOURCES
     src/main.cpp
     src/config/Config.cpp
@@ -54,4 +56,62 @@ if(LIBCAMERA_FOUND)
     target_compile_options(edge PRIVATE ${LIBCAMERA_CFLAGS_OTHER})
 else()
     message(STATUS "libcamera not found: OV5647 will use demo mode")
+endif()
+
+if(ENABLE_CORAL)
+    if(NOT TENSORFLOW_SOURCE_DIR)
+        if(DEFINED ENV{TENSORFLOW_SOURCE_DIR})
+            set(TENSORFLOW_SOURCE_DIR "$ENV{TENSORFLOW_SOURCE_DIR}")
+        elseif(EXISTS "${CMAKE_SOURCE_DIR}/third_party/tensorflow/tensorflow/lite")
+            set(TENSORFLOW_SOURCE_DIR "${CMAKE_SOURCE_DIR}/third_party/tensorflow")
+        else()
+            message(FATAL_ERROR "ENABLE_CORAL=ON needs TENSORFLOW_SOURCE_DIR. Run scripts/setup_coral_cpp.sh first.")
+        endif()
+    endif()
+
+    set(EDGETPU_INCLUDE "${CMAKE_SOURCE_DIR}/third_party/coral/include")
+    if(DEFINED ENV{EDGETPU_INCLUDE})
+        set(EDGETPU_INCLUDE "$ENV{EDGETPU_INCLUDE}")
+    endif()
+
+    if(NOT EXISTS "${EDGETPU_INCLUDE}/edgetpu.h")
+        message(FATAL_ERROR "edgetpu.h not found at ${EDGETPU_INCLUDE}. Run scripts/setup_coral_cpp.sh")
+    endif()
+
+    set(TFLITE_BINARY_DIR "${CMAKE_SOURCE_DIR}/third_party/tflite_build")
+    if(DEFINED ENV{TFLITE_BINARY_DIR})
+        set(TFLITE_BINARY_DIR "$ENV{TFLITE_BINARY_DIR}")
+    endif()
+    add_compile_options(-Wno-deprecated-declarations)
+
+    add_subdirectory(
+        "${TENSORFLOW_SOURCE_DIR}/tensorflow/lite"
+        "${TFLITE_BINARY_DIR}"
+        EXCLUDE_FROM_ALL
+    )
+
+    if(DEFINED ENV{EDGETPU_LIB} AND EXISTS "$ENV{EDGETPU_LIB}")
+        set(EDGETPU_LIB "$ENV{EDGETPU_LIB}")
+    else()
+        find_library(EDGETPU_LIB
+            NAMES edgetpu edgetpu.so.1 libedgetpu.so.1
+            PATHS /usr/lib /usr/lib/aarch64-linux-gnu /usr/lib/arm-linux-gnueabihf /usr/local/lib
+            REQUIRED
+        )
+    endif()
+    find_library(LIBUSB_LIB NAMES usb-1.0)
+    message(STATUS "Linking Edge TPU library: ${EDGETPU_LIB}")
+
+    target_compile_definitions(edge PRIVATE HAS_EDGETPU)
+    target_include_directories(edge PRIVATE
+        "${TENSORFLOW_SOURCE_DIR}"
+        "${EDGETPU_INCLUDE}"
+    )
+    target_link_libraries(edge PRIVATE
+        tensorflow-lite
+        "${EDGETPU_LIB}"
+    )
+    if(LIBUSB_LIB)
+        target_link_libraries(edge PRIVATE "${LIBUSB_LIB}")
+    endif()
 endif()

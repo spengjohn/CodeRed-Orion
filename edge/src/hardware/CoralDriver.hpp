@@ -2,10 +2,20 @@
 
 #include <cstdint>
 
+// Google Coral USB Accelerator (Edge TPU) via libedgetpu + TensorFlow Lite.
+// Live path needs -DHAS_EDGETPU (ENABLE_CORAL=1) and scripts/setup_coral_cpp.sh.
+// Demo path synthesizes person boxes so tracking can run offline.
+//
+// Models: quantized TFLite compiled for Edge TPU (*_edgetpu.tflite).
+// Default: models/tf2_ssd_mobilenet_v2_coco17_ptq_edgetpu.tflite
+// Override: CORAL_MODEL=/path/to/model_edgetpu.tflite
+//
+// Hub: OV5647 -> pack RGB888 -> detect() -> best_person() -> BabyTrackPipeline.
+
 struct CoralDetection {
     int class_id = -1;
     float score = 0.0f;
-    float xmin = 0.0f;
+    float xmin = 0.0f; // normalized [0, 1]
     float ymin = 0.0f;
     float xmax = 0.0f;
     float ymax = 0.0f;
@@ -14,7 +24,7 @@ struct CoralDetection {
 
 struct CoralDriver {
     static constexpr int max_detections = 10;
-    static constexpr int person_class_id = 0;
+    static constexpr int person_class_id = 0; // COCO SSD
     static constexpr float default_score_threshold = 0.40f;
 
     CoralDetection detections[max_detections]{};

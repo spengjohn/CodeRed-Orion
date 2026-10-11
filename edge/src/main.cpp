@@ -123,6 +123,20 @@ int main() {
         << " err=" << (hub.lidar.last_error[0] ? hub.lidar.last_error : "-")
         << '\n';
 
+    if (cfg.tracking_enabled) {
+        std::cout
+            << "tracking coral demo=" << (coral.demo_mode ? 1 : 0)
+            << " stick=" << (coral.stick_present ? 1 : 0)
+            << " model=" << (coral.model_path[0] ? coral.model_path : "-")
+            << " err=" << (coral.last_error[0] ? coral.last_error : "-")
+            << '\n';
+        std::cout
+            << "tracking maestro demo=" << (maestro.demo_mode ? 1 : 0)
+            << " port=" << (maestro.port_path[0] ? maestro.port_path : "-")
+            << " err=" << (maestro.last_error[0] ? maestro.last_error : "-")
+            << '\n';
+    }
+
     while (hub.thermal.ready && camera.ready) {
         if (!hub.refresh()) {
             break;
