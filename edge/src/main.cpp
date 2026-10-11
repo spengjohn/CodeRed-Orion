@@ -11,6 +11,9 @@
 namespace {
 
 float round2(float value) {
+    if (!std::isfinite(value)) {
+        return 0.0f;
+    }
     return std::round(value * 100.0f) / 100.0f;
 }
 
@@ -39,6 +42,8 @@ int main() {
 
     double ambient_sum = 0.0;
     int ambient_count = 0;
+    float last_good_ambient = 0.0f;
+    bool have_last_good_ambient = false;
 
     while (hub.thermal.ready) {
         if (!hub.refresh()) {
@@ -46,17 +51,33 @@ int main() {
         }
 
         const ThermalRoiSample temps = hub.roi.sample(hub.thermal, nullptr);
-        ambient_sum += static_cast<double>(temps.ambient_temp_c);
-        ++ambient_count;
+        if (std::isfinite(temps.ambient_temp_c)) {
+            ambient_sum += static_cast<double>(temps.ambient_temp_c);
+            ++ambient_count;
+            last_good_ambient = temps.ambient_temp_c;
+            have_last_good_ambient = true;
+        }
 
         const auto now = std::chrono::steady_clock::now();
         if (cfg.timeseries_enabled && now >= next_vitals_at) {
             VitalsReading reading = hub.sample();
+
             if (ambient_count > 0) {
                 reading.ambient_temp = round2(static_cast<float>(
                     ambient_sum / static_cast<double>(ambient_count)
                 ));
+            } else if (have_last_good_ambient) {
+                reading.ambient_temp = round2(last_good_ambient);
+            } else {
+                reading.ambient_temp = 0.0f;
             }
+
+            if (!std::isfinite(reading.ambient_temp)) {
+                reading.ambient_temp = have_last_good_ambient
+                    ? round2(last_good_ambient)
+                    : 0.0f;
+            }
+
             reading.weight = 0.0f;
             reading.baby_temp = 0.0f;
             reading.breaths = 0;

@@ -34,8 +34,10 @@ def create_app():
 
     # Start Edge TCP Relay Server for video frames
     from app.realtime.video_relay import start_relay
-    edge_port = int(os.getenv("EDGE_TCP_PORT", 8765))
-    start_relay(port=edge_port)
+    
+    if os.environ.get("WERKZEUG_RUN_MAIN") == "true" or not app.debug:
+        edge_port = int(os.getenv("EDGE_TCP_PORT", 8765))
+        start_relay(port=edge_port)
 
     @app.get("/api/health")
     def health():

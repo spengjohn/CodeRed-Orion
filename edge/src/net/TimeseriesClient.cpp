@@ -70,7 +70,7 @@ bool TimeseriesClient::post_vitals(const VitalsReading& reading) {
 
     PGresult* result = PQexecParams(
         conn,
-        "INSERT INTO infant_vitals "
+        "INSERT INTO vitals "
         "(time, unix_time, weight, ambient_temp, baby_temp, breaths, moved) "
         "VALUES (to_timestamp($1::bigint), $1::bigint, $2::numeric, $3::numeric, "
         "$4::numeric, $5::integer, $6::boolean)",
