@@ -1,59 +1,77 @@
-import { useEffect, useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import { Link } from 'react-router'
 import { alertKind, alertTitle } from '../api/alerts'
 import { connectAlerts } from '../api/live'
 import { useFormatters } from '../hooks/useFormatters'
 import AlertIcon from './AlertIcon'
 
-const MAX_TOASTS = 3
+const MAX_QUEUED = 10
 
-// Pop-ups for emergency alerts, shown on every page while signed in. Each one
-// stays until dismissed (it's an emergency), newest on top.
+// Emergency alerts, shown on every page while signed in as a large card in the
+// middle of the screen over a dimmed page. It stays until dismissed (it's an
+// emergency). If more arrive, the newest shows first with a "+N more" note,
+// and dismissing it reveals the next.
 function AlertToasts() {
   const fmt = useFormatters()
-  const [toasts, setToasts] = useState([])
+  const [queue, setQueue] = useState([])
+  const dismissButton = useRef(null)
 
   useEffect(
     () =>
       connectAlerts((alert) =>
-        setToasts((list) => [alert, ...list.filter((t) => t.id !== alert.id)].slice(0, MAX_TOASTS)),
+        setQueue((list) => [alert, ...list.filter((a) => a.id !== alert.id)].slice(0, MAX_QUEUED)),
       ),
     [],
   )
 
-  const dismiss = (id) => setToasts((list) => list.filter((t) => t.id !== id))
+  const current = queue[0]
+  const dismiss = () => setQueue((list) => list.slice(1))
 
-  if (toasts.length === 0) return null
+  // Focus the dismiss button when an alert opens, and let Escape dismiss it.
+  useEffect(() => {
+    if (!current) return undefined
+    dismissButton.current?.focus()
+    const onKey = (e) => {
+      if (e.key === 'Escape') setQueue((list) => list.slice(1))
+    }
+    document.addEventListener('keydown', onKey)
+    return () => document.removeEventListener('keydown', onKey)
+  }, [current])
+
+  if (!current) return null
+
+  const kind = alertKind(current.code)
+  const more = queue.length - 1
 
   return (
-    <div className="alert-toasts">
-      {toasts.map((alert) => {
-        const kind = alertKind(alert.code)
-        return (
-          <div key={alert.id} className="alert-toast" role="alert" style={{ '--m': `var(--${kind})` }}>
-            <AlertIcon kind={kind} />
-            <div className="alert-toast-body">
-              <span className="alert-toast-label">Alert · {fmt.time(alert.ts)}</span>
-              <strong>{alertTitle(alert.description)}</strong>
-              {alert.details.message && <span className="muted">{alert.details.message}</span>}
-              {alert.image && <img src={alert.image} alt="Crib camera when the alert fired" />}
-              <Link to="/alerts" className="alert-toast-link" onClick={() => dismiss(alert.id)}>
-                View alert log
-              </Link>
-            </div>
-            <button
-              type="button"
-              className="alert-toast-close"
-              aria-label="Dismiss alert"
-              onClick={() => dismiss(alert.id)}
-            >
-              <svg viewBox="0 0 24 24" aria-hidden="true">
-                <path d="M6 6l12 12M18 6 6 18" />
-              </svg>
-            </button>
-          </div>
-        )
-      })}
+    <div className="alert-overlay">
+      <div
+        key={current.id}
+        className="alert-modal"
+        role="alertdialog"
+        aria-modal="true"
+        aria-labelledby="alert-modal-title"
+        style={{ '--m': `var(--${kind})` }}
+      >
+        <div className="alert-modal-head">
+          <AlertIcon kind={kind} />
+          <span className="alert-modal-label">Alert · {fmt.time(current.ts)}</span>
+        </div>
+
+        <h2 id="alert-modal-title">{alertTitle(current.description)}</h2>
+        {current.details.message && <p className="alert-modal-message">{current.details.message}</p>}
+        {current.image && <img src={current.image} alt="Crib camera when the alert fired" />}
+
+        <div className="alert-modal-actions">
+          <button type="button" className="wbtn pri" ref={dismissButton} onClick={dismiss}>
+            {more > 0 ? 'Dismiss' : 'Got it'}
+          </button>
+          <Link to="/alerts" className="wbtn gho" onClick={dismiss}>
+            View alert log
+          </Link>
+        </div>
+        {more > 0 && <p className="alert-modal-more">+{more} more alert{more > 1 ? 's' : ''}</p>}
+      </div>
     </div>
   )
 }
