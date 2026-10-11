@@ -57,5 +57,13 @@ test('groups codes by kind and turns descriptions into titles', () => {
     'alert',
   ])
   expect(alertTitle("the baby's temperature is high")).toBe('Temperature is high')
+})
+
+test("maps the board's alert codes 101-104", () => {
+  expect([101, 102, 103, 104].map(alertKind)).toEqual(['breath', 'temp', 'temp', 'weight'])
+  expect(alertTitle('the baby has stopped breathing')).toBe('The baby has stopped breathing')
+  expect(alertTitle("the baby's temperature is outside the safe range")).toBe(
+    'Temperature is outside the safe range',
+  )
   expect(alertTitle('an alert with code 9')).toBe('An alert with code 9')
 })
