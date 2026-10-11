@@ -8,6 +8,7 @@ set(CMAKE_EXPORT_COMPILE_COMMANDS ON)
 set(EDGE_SOURCES
     src/main.cpp
     src/config/Config.cpp
+    src/hardware/ADS1115Driver.cpp
     src/hardware/MLX90640Driver.cpp
     src/hardware/mlx90640/MLX90640_API.cpp
     src/hardware/mlx90640/MLX90640_LINUX_I2C_Driver.cpp

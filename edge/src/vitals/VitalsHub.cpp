@@ -17,12 +17,15 @@ float round2(float value) {
 bool VitalsHub::init() {
     bool ok = true;
     ok = thermal.init() && ok;
+    ok = pressure.init() && ok;
     ok = roi.init() && ok;
     return ok;
 }
 
 bool VitalsHub::refresh() {
-    return thermal.refresh();
+    const bool thermal_ok = thermal.refresh();
+    pressure.refresh();
+    return thermal_ok;
 }
 
 VitalsReading VitalsHub::sample() const {
@@ -45,5 +48,6 @@ VitalsReading VitalsHub::sample() const {
 
 void VitalsHub::shutdown() {
     roi.shutdown();
+    pressure.shutdown();
     thermal.shutdown();
 }
