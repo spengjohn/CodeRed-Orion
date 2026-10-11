@@ -8,7 +8,6 @@
 #include <vector>
 
 #include "config/Config.hpp"
-#include "hardware/MLX90640Driver.hpp"
 #include "hardware/OV5647.hpp"
 #include "net/UplinkClient.hpp"
 #include "vision/CameraFusion.hpp"
@@ -16,7 +15,6 @@
 struct IrStreamPipeline {
     OV5647* camera = nullptr;
     CameraFusion* fusion = nullptr;
-    MLX90640Driver* thermal = nullptr;
     UplinkClient* uplink = nullptr;
     Config cfg{};
     bool ready = false;
@@ -26,13 +24,7 @@ struct IrStreamPipeline {
     int frames_posted = 0;
     int frames_failed = 0;
 
-    bool init(
-        const Config& config,
-        OV5647& cam,
-        CameraFusion& fus,
-        UplinkClient& client,
-        MLX90640Driver* therm = nullptr
-    );
+    bool init(const Config& config, OV5647& cam, CameraFusion& fus, UplinkClient& client);
     bool process_frame();
     void shutdown();
 

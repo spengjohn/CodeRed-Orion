@@ -61,7 +61,7 @@ int main() {
         if (!uplink.last_ok()) {
             std::cerr << "video uplink not connected yet: " << uplink.last_error() << '\n';
         }
-        ir_stream.init(cfg, camera, fusion, uplink, &hub.thermal);
+        ir_stream.init(cfg, camera, fusion, uplink);
     }
     if (cfg.tracking_enabled) {
         baby_track.init(camera, coral, hub.thermal, maestro, hub.roi);
