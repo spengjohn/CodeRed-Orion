@@ -59,13 +59,18 @@ else()
 endif()
 
 if(ENABLE_CORAL)
+    # Prefer linking a finished TFLite tree (e.g. from C_Hardware_Testing).
+    # add_subdirectory() re-downloads deps into build-coral and can take hours.
+    option(CORAL_USE_PREBUILT_TFLITE
+        "Link existing libtensorflow-lite.a instead of add_subdirectory" ON)
+
     if(NOT TENSORFLOW_SOURCE_DIR)
         if(DEFINED ENV{TENSORFLOW_SOURCE_DIR})
             set(TENSORFLOW_SOURCE_DIR "$ENV{TENSORFLOW_SOURCE_DIR}")
         elseif(EXISTS "${CMAKE_SOURCE_DIR}/third_party/tensorflow/tensorflow/lite")
             set(TENSORFLOW_SOURCE_DIR "${CMAKE_SOURCE_DIR}/third_party/tensorflow")
         else()
-            message(FATAL_ERROR "ENABLE_CORAL=ON needs TENSORFLOW_SOURCE_DIR. Run scripts/setup_coral_cpp.sh first.")
+            message(FATAL_ERROR "ENABLE_CORAL=ON needs TENSORFLOW_SOURCE_DIR.")
         endif()
     endif()
 
@@ -75,20 +80,13 @@ if(ENABLE_CORAL)
     endif()
 
     if(NOT EXISTS "${EDGETPU_INCLUDE}/edgetpu.h")
-        message(FATAL_ERROR "edgetpu.h not found at ${EDGETPU_INCLUDE}. Run scripts/setup_coral_cpp.sh")
+        message(FATAL_ERROR "edgetpu.h not found at ${EDGETPU_INCLUDE}")
     endif()
 
     set(TFLITE_BINARY_DIR "${CMAKE_SOURCE_DIR}/third_party/tflite_build")
     if(DEFINED ENV{TFLITE_BINARY_DIR})
         set(TFLITE_BINARY_DIR "$ENV{TFLITE_BINARY_DIR}")
     endif()
-    add_compile_options(-Wno-deprecated-declarations)
-
-    add_subdirectory(
-        "${TENSORFLOW_SOURCE_DIR}/tensorflow/lite"
-        "${TFLITE_BINARY_DIR}"
-        EXCLUDE_FROM_ALL
-    )
 
     if(DEFINED ENV{EDGETPU_LIB} AND EXISTS "$ENV{EDGETPU_LIB}")
         set(EDGETPU_LIB "$ENV{EDGETPU_LIB}")
@@ -107,11 +105,55 @@ if(ENABLE_CORAL)
         "${TENSORFLOW_SOURCE_DIR}"
         "${EDGETPU_INCLUDE}"
     )
-    target_link_libraries(edge PRIVATE
-        tensorflow-lite
-        "${EDGETPU_LIB}"
-    )
-    if(LIBUSB_LIB)
-        target_link_libraries(edge PRIVATE "${LIBUSB_LIB}")
+    target_compile_options(edge PRIVATE -Wno-deprecated-declarations)
+
+    set(_tflite_a "${TFLITE_BINARY_DIR}/libtensorflow-lite.a")
+    if(CORAL_USE_PREBUILT_TFLITE AND EXISTS "${_tflite_a}")
+        message(STATUS "Using PREBUILT TFLite (no FetchContent): ${_tflite_a}")
+
+        # Pull every static lib from the finished tree; --start-group resolves cycles.
+        file(GLOB_RECURSE _tflite_static_libs "${TFLITE_BINARY_DIR}/*.a")
+        # Also pick up deps that Hardware Testing may have left under its build-coral.
+        if(DEFINED ENV{TFLITE_EXTRA_LIB_DIR} AND EXISTS "$ENV{TFLITE_EXTRA_LIB_DIR}")
+            file(GLOB_RECURSE _extra_static "$ENV{TFLITE_EXTRA_LIB_DIR}/*.a")
+            list(APPEND _tflite_static_libs ${_extra_static})
+        endif()
+        list(REMOVE_DUPLICATES _tflite_static_libs)
+
+        # Flatbuffers / other generated headers often live next to the build.
+        if(EXISTS "${TFLITE_BINARY_DIR}/flatbuffers/include")
+            target_include_directories(edge PRIVATE "${TFLITE_BINARY_DIR}/flatbuffers/include")
+        endif()
+        file(GLOB _fb_inc_dirs "${TFLITE_BINARY_DIR}/**/flatbuffers/include")
+        foreach(_d ${_fb_inc_dirs})
+            if(IS_DIRECTORY "${_d}")
+                target_include_directories(edge PRIVATE "${_d}")
+            endif()
+        endforeach()
+
+        target_link_libraries(edge PRIVATE
+            -Wl,--start-group
+            ${_tflite_static_libs}
+            -Wl,--end-group
+            "${EDGETPU_LIB}"
+            dl
+        )
+        if(LIBUSB_LIB)
+            target_link_libraries(edge PRIVATE "${LIBUSB_LIB}")
+        endif()
+    else()
+        message(WARNING
+            "Prebuilt libtensorflow-lite.a not found at ${_tflite_a}; "
+            "falling back to add_subdirectory (slow). Set TFLITE_BINARY_DIR.")
+        add_compile_options(-Wno-deprecated-declarations)
+        add_subdirectory(
+            "${TENSORFLOW_SOURCE_DIR}/tensorflow/lite"
+            "${TFLITE_BINARY_DIR}"
+            EXCLUDE_FROM_ALL
+        )
+        target_link_libraries(edge PRIVATE tensorflow-lite "${EDGETPU_LIB}")
+        if(LIBUSB_LIB)
+            target_link_libraries(edge PRIVATE "${LIBUSB_LIB}")
+        endif()
     endif()
 endif()

@@ -37,18 +37,38 @@ if [[ -z "${TIGERDATA_URL:-}" ]]; then
 fi
 
 if [[ "${ENABLE_CORAL:-0}" == "1" ]]; then
+  # Defaults: reuse C_Hardware_Testing's finished TFLite (do NOT re-fetch).
+  : "${TENSORFLOW_SOURCE_DIR:=$HOME/Projects/C_Hardware_Testing/third_party/tensorflow}"
+  : "${TFLITE_BINARY_DIR:=$HOME/Projects/C_Hardware_Testing/third_party/tflite_build}"
+  : "${EDGETPU_INCLUDE:=$HOME/Projects/C_Hardware_Testing/third_party/coral/include}"
+
+  mkdir -p third_party/coral
+  if [[ ! -e third_party/coral/include ]]; then
+    ln -sfn "${EDGETPU_INCLUDE}" third_party/coral/include
+  fi
+
   if [[ ! -f third_party/coral/include/edgetpu.h ]]; then
-    echo "ENABLE_CORAL=1 but Edge TPU headers missing. Run ./scripts/setup_coral_cpp.sh" >&2
+    echo "ENABLE_CORAL=1 but edgetpu.h missing at ${EDGETPU_INCLUDE}" >&2
     exit 1
   fi
-  if [[ -z "${TENSORFLOW_SOURCE_DIR:-}" || ! -d "${TENSORFLOW_SOURCE_DIR}/tensorflow/lite" ]]; then
-    echo "ENABLE_CORAL=1 but TENSORFLOW_SOURCE_DIR incomplete. Run ./scripts/setup_coral_cpp.sh" >&2
+  if [[ ! -d "${TENSORFLOW_SOURCE_DIR}/tensorflow/lite" ]]; then
+    echo "ENABLE_CORAL=1 but TENSORFLOW_SOURCE_DIR incomplete: ${TENSORFLOW_SOURCE_DIR}" >&2
     exit 1
   fi
-  echo "Building with Coral Edge TPU live path (CMake + HAS_EDGETPU)"
+  if [[ ! -f "${TFLITE_BINARY_DIR}/libtensorflow-lite.a" ]]; then
+    echo "Prebuilt TFLite not found: ${TFLITE_BINARY_DIR}/libtensorflow-lite.a" >&2
+    echo "Build it once in C_Hardware_Testing (setup_coral_cpp.sh), then retry." >&2
+    exit 1
+  fi
+
+  echo "Building Orion edge with PREBUILT TFLite (fast path)"
+  echo "  TENSORFLOW_SOURCE_DIR=${TENSORFLOW_SOURCE_DIR}"
+  echo "  TFLITE_BINARY_DIR=${TFLITE_BINARY_DIR}"
   cmake -S . -B build-coral \
     -DENABLE_CORAL=ON \
-    -DTENSORFLOW_SOURCE_DIR="${TENSORFLOW_SOURCE_DIR}"
+    -DCORAL_USE_PREBUILT_TFLITE=ON \
+    -DTENSORFLOW_SOURCE_DIR="${TENSORFLOW_SOURCE_DIR}" \
+    -DTFLITE_BINARY_DIR="${TFLITE_BINARY_DIR}"
   cmake --build build-coral -j"$(nproc 2>/dev/null || echo 2)" --target edge
   exec ./build-coral/edge "$@"
 fi
