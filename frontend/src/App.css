@@ -690,3 +690,165 @@
     transform: translateX(20px);
   }
 }
+
+/* ---------- Alerts: pop-ups and log ---------- */
+/* Round tinted icon; --m is the alert's kind color (temp, breath or alert). */
+.alert-icon {
+  flex: none;
+  display: grid;
+  place-items: center;
+  width: 34px;
+  height: 34px;
+  border-radius: calc(10px * var(--r));
+  color: var(--m);
+  background: color-mix(in srgb, var(--m) 18%, transparent);
+
+  svg {
+    width: 18px;
+    height: 18px;
+    fill: none;
+    stroke: currentColor;
+    stroke-width: 2.2;
+    stroke-linecap: round;
+    stroke-linejoin: round;
+  }
+}
+
+/* Pop-ups: stacked at the top right, above everything. */
+.alert-toasts {
+  position: fixed;
+  top: 68px;
+  right: 16px;
+  z-index: 50;
+  display: grid;
+  gap: 10px;
+  width: min(360px, calc(100vw - 32px));
+}
+.alert-toast {
+  display: flex;
+  align-items: flex-start;
+  gap: 12px;
+  padding: 14px;
+  background: var(--surface);
+  border: 1px solid color-mix(in srgb, var(--alert) 40%, var(--border));
+  border-left: 4px solid var(--alert);
+  border-radius: calc(16px * var(--r));
+  box-shadow: 0 10px 30px color-mix(in srgb, var(--text) 18%, transparent);
+  animation: toast-in 0.35s cubic-bezier(0.2, 0.8, 0.2, 1) both;
+
+  img {
+    display: block;
+    width: 100%;
+    margin-top: 4px;
+    border-radius: calc(10px * var(--r));
+  }
+}
+.alert-toast-body {
+  display: grid;
+  gap: 4px;
+  min-width: 0;
+  flex: 1;
+
+  strong {
+    font-family: var(--font-display);
+    font-size: 15px;
+    font-weight: 800;
+  }
+}
+.alert-toast-label {
+  font-size: 11px;
+  font-weight: 800;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: var(--alert);
+  font-variant-numeric: tabular-nums;
+}
+.alert-toast-link {
+  justify-self: start;
+  margin-top: 2px;
+  font-size: 13px;
+  font-weight: 700;
+}
+.alert-toast-close {
+  flex: none;
+  display: grid;
+  place-items: center;
+  width: 28px;
+  height: 28px;
+  border: 0;
+  border-radius: 50%;
+  background: transparent;
+  color: var(--muted);
+  cursor: pointer;
+
+  &:hover {
+    background: color-mix(in srgb, var(--text) 8%, transparent);
+  }
+  svg {
+    width: 16px;
+    height: 16px;
+    stroke: currentColor;
+    stroke-width: 2.2;
+    stroke-linecap: round;
+  }
+}
+@keyframes toast-in {
+  from {
+    opacity: 0;
+    transform: translateY(-8px) scale(0.98);
+  }
+}
+
+/* Log page */
+.alert-log {
+  display: grid;
+  gap: 10px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+.alert-row {
+  display: flex;
+  align-items: flex-start;
+  gap: 14px;
+  padding: 14px 16px;
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-left: 4px solid var(--m);
+  border-radius: calc(16px * var(--r));
+  box-shadow: var(--shadow);
+}
+.alert-row-body {
+  display: grid;
+  gap: 4px;
+  min-width: 0;
+
+  strong {
+    font-family: var(--font-display);
+    font-size: 16px;
+    font-weight: 800;
+  }
+  .muted {
+    font-size: 12px;
+    font-variant-numeric: tabular-nums;
+  }
+}
+.alert-snap {
+  display: block;
+  width: min(320px, 100%);
+  aspect-ratio: 4 / 3;
+  margin-top: 6px;
+  object-fit: cover;
+  border-radius: calc(12px * var(--r));
+}
+.alert-snap-btn {
+  justify-self: start;
+  margin-top: 4px;
+}
+.alerts-empty {
+  display: grid;
+  justify-items: center;
+  gap: 6px;
+  padding: 36px 18px;
+  text-align: center;
+}

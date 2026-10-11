@@ -6,6 +6,8 @@ Edge device, authenticates the client, enforces rate limiting (10-12 FPS),
 and broadcasts frames to connected frontend clients via Socket.IO.
 """
 
+import base64
+import binascii
 import hmac
 import json
 import logging
@@ -34,6 +36,36 @@ SOCKET_TIMEOUT_SECONDS: float = 15.0
 
 _relay_started: bool = False
 _relay_lock = threading.Lock()
+
+
+def _alert_code(parsed: dict) -> str:
+    """
+    The alert's numeric code as a string ("4"), from whichever field the board sent:
+    "emergency_code": 4, "emergency_type": 4, or "emergency_type": "CODE_4".
+    Anything else is passed through unchanged (the alerts table then skips it).
+    """
+    for value in (parsed.get("emergency_code"), parsed.get("emergency_type")):
+        if value is None:
+            continue
+        text = str(value).strip()
+        if text.upper().startswith("CODE_"):
+            text = text[5:]
+        if text.lstrip("-").isdigit():
+            return str(int(text))
+    return str(parsed.get("emergency_type") or "UNKNOWN")
+
+
+def _decode_snapshot(value) -> bytes:
+    """A base64 snapshot string from the JSON (optionally a data: URL) as raw bytes; b"" if missing or invalid."""
+    if not isinstance(value, str) or not value:
+        return b""
+    if value.startswith("data:"):
+        value = value.split(",", 1)[-1]
+    try:
+        return base64.b64decode(value, validate=True)
+    except (binascii.Error, ValueError):
+        logger.warning("[Video Relay] Emergency snapshot is not valid base64 — ignored.")
+        return b""
 
 
 def get_edge_secret() -> str:
@@ -161,13 +193,11 @@ def _handle_edge_client(conn: socket.socket, addr: Tuple[str, int]) -> None:
                             details = {"message": str(detail_str)} if detail_str else {}
 
                         emergency_code = parsed.get("emergency_code")
-                        emergency_type = str(
-                            parsed.get("emergency_type")
-                            or (f"CODE_{emergency_code}" if emergency_code is not None else "UNKNOWN")
-                        )
+                        emergency_type = _alert_code(parsed)
 
-                        # Support snapshot as raw trailing bytes or base64 string inside JSON
-                        snapshot_payload = snapshot_bytes if snapshot_bytes else parsed.get("snapshot", "")
+                        # Support snapshot as raw trailing bytes or base64 string inside JSON;
+                        # either way it's passed on as raw JPEG bytes.
+                        snapshot_payload = snapshot_bytes or _decode_snapshot(parsed.get("snapshot"))
 
                         logger.info(
                             "[Video Relay] 🚨 Emergency received on video stream: type=%s (code=%s)",

@@ -1,4 +1,5 @@
 import { io } from 'socket.io-client'
+import { normalizeAlert } from './alerts'
 import { getAccessToken } from './client'
 import { normalizeReading } from './readings'
 
@@ -60,4 +61,10 @@ export function connectLive(onReading, onStatus = () => {}) {
 // relayed from the crib's edge device at up to ~12 per second.
 export function connectFrames(onFrame) {
   return subscribe({ video_frame: onFrame })
+}
+
+// Subscribe to emergency alerts from the crib ("emergency_alert"), normalized
+// by api/alerts.js. Returns an unsubscribe function.
+export function connectAlerts(onAlert) {
+  return subscribe({ emergency_alert: (alert) => onAlert(normalizeAlert(alert)) })
 }

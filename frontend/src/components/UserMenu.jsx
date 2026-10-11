@@ -54,6 +54,9 @@ function UserMenu() {
               <span>{user.email}</span>
             </div>
           )}
+          <Link role="menuitem" to="/alerts" onClick={() => setOpen(false)}>
+            Alerts
+          </Link>
           <Link role="menuitem" to="/settings" onClick={() => setOpen(false)}>
             Settings
           </Link>
