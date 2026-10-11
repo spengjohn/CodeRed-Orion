@@ -5,4 +5,4 @@ When Tiger Data is ready, comment out the dummy line and uncomment the tiger lin
 """
 
 from .dummy import get_latest, get_history     # dummy data (current)
-# from .tiger import get_latest, get_history   # live Tiger Data (not written yet)
+# from .tiger import get_latest, get_history   # live Tiger Data (set TIGER_DATABASE_URL in backend/.env first)

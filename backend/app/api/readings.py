@@ -9,14 +9,17 @@ from app.data import get_history, get_latest
 
 bp = Blueprint("readings", __name__, url_prefix="/api/readings")
 
-MAX_RANGE_S = 30 * 24 * 3600  # 7 days
+MAX_RANGE_S = 30 * 24 * 3600  # 30 days
 MAX_POINTS = 2000            # cap chart points per response
 
 
 @bp.get("/latest")
 def latest():
-    """GET /api/readings/latest -> one reading."""
-    return jsonify(get_latest())
+    """GET /api/readings/latest -> one reading (404 if the table is still empty)."""
+    reading = get_latest()
+    if reading is None:
+        return jsonify({"error": "no readings yet"}), 404
+    return jsonify(reading)
 
 
 @bp.get("/history")
