@@ -122,8 +122,9 @@ if(ENABLE_CORAL)
         set(_tflite_static_libs "")
         foreach(_lib ${_tflite_raw_libs})
             get_filename_component(_name "${_lib}" NAME)
-            # Skip alternate FFT implementations and junk.
-            if(_name MATCHES "fft4f2d" OR _name MATCHES "fftsg2d")
+            # fft4f2d conflicts with fftsg (duplicate makewt/makect/bitrv2).
+            # Keep fftsg + fftsg2d (rdft2d lives in fftsg2d).
+            if(_name MATCHES "fft4f2d")
                 continue()
             endif()
             if(_name MATCHES "_test\\.a$" OR _name MATCHES "benchmark")
