@@ -17,6 +17,7 @@ bool BabyTrackPipeline::init(
     baby = nullptr;
     baby_temp_c = 0.0f;
     baby_temp_valid = false;
+    baby_thermal_pixels = 0;
     pan_error = 0.0f;
     tilt_error = 0.0f;
     rgb.assign(static_cast<std::size_t>(OV5647::pixel_count) * 3u, 0);
@@ -60,6 +61,7 @@ void BabyTrackPipeline::shutdown() {
     baby = nullptr;
     baby_temp_c = 0.0f;
     baby_temp_valid = false;
+    baby_thermal_pixels = 0;
     pan_error = 0.0f;
     tilt_error = 0.0f;
     rgb.clear();
@@ -87,8 +89,9 @@ bool BabyTrackPipeline::detect_baby() {
 }
 
 bool BabyTrackPipeline::map_detection_to_thermal() {
-    // Coral boxes are already normalized [0, 1]; ThermalRoiSampler maps them
-    // onto the MLX90640 grid directly — no extra transform needed here.
+    // Coral IR box stays in IR-normalized coords. ThermalRoiSampler projects
+    // each MLX90640 pixel into IR space with CameraFusion registration
+    // (X mirror + thermal_*_shift_px) before the inside-box test.
     return true;
 }
 
@@ -96,11 +99,13 @@ bool BabyTrackPipeline::sample_baby_temperature() {
     if (thermal == nullptr || roi == nullptr) {
         baby_temp_c = 0.0f;
         baby_temp_valid = false;
+        baby_thermal_pixels = 0;
         return false;
     }
     const ThermalRoiSample sample = roi->sample(*thermal, baby);
     baby_temp_c = sample.baby_temp_c;
     baby_temp_valid = sample.baby_roi_valid;
+    baby_thermal_pixels = sample.baby_pixel_count;
     return true;
 }
 
@@ -125,5 +130,7 @@ bool BabyTrackPipeline::control_servos() {
     if (baby == nullptr) {
         return true;
     }
-    return maestro->center_from_error(pan_error, tilt_error);
+    // Mount wiring: positive image pan (baby right of center) needs a negative
+    // Maestro pan nudge. Logged pan_error stays image-space; only actuation flips.
+    return maestro->center_from_error(-pan_error, tilt_error);
 }

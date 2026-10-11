@@ -6,12 +6,14 @@ bool IrStreamPipeline::init(
     const Config& config,
     OV5647& cam,
     CameraFusion& fus,
-    UplinkClient& client
+    UplinkClient& client,
+    MLX90640Driver* therm
 ) {
     stop_worker();
     cfg = config;
     camera = &cam;
     fusion = &fus;
+    thermal = therm;
     uplink = &client;
     frames_posted = 0;
     frames_failed = 0;
@@ -40,6 +42,7 @@ void IrStreamPipeline::shutdown() {
     ready = false;
     camera = nullptr;
     fusion = nullptr;
+    thermal = nullptr;
     uplink = nullptr;
     jpeg.clear();
     frame.rgb.clear();
@@ -48,6 +51,11 @@ void IrStreamPipeline::shutdown() {
 bool IrStreamPipeline::render_frame() {
     if (fusion == nullptr || camera == nullptr) {
         return false;
+    }
+    if (thermal != nullptr && thermal->ready) {
+        if (fusion->render_fusion(*camera, *thermal, frame)) {
+            return true;
+        }
     }
     return fusion->render_ir(*camera, frame);
 }

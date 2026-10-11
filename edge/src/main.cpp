@@ -53,6 +53,7 @@ int main() {
         return EXIT_FAILURE;
     }
     fusion.init();
+    hub.roi.sync_registration(fusion);
     coral.init();
     maestro.init();
     if (cfg.uplink_enabled) {
@@ -60,7 +61,7 @@ int main() {
         if (!uplink.last_ok()) {
             std::cerr << "video uplink not connected yet: " << uplink.last_error() << '\n';
         }
-        ir_stream.init(cfg, camera, fusion, uplink);
+        ir_stream.init(cfg, camera, fusion, uplink, &hub.thermal);
     }
     if (cfg.tracking_enabled) {
         baby_track.init(camera, coral, hub.thermal, maestro, hub.roi);
@@ -115,6 +116,8 @@ int main() {
     auto next_vitals_at = std::chrono::steady_clock::now()
         + std::chrono::seconds(interval_sec);
     auto next_breath_log_at = std::chrono::steady_clock::now()
+        + std::chrono::seconds(1);
+    auto next_track_log_at = std::chrono::steady_clock::now()
         + std::chrono::seconds(1);
 
     std::cout
@@ -188,6 +191,23 @@ int main() {
                 << " half=" << hub.breath.half_cycles
                 << '\n';
             next_breath_log_at = now + std::chrono::seconds(1);
+        }
+        if (cfg.tracking_enabled && now >= next_track_log_at) {
+            std::cout
+                << "track baby=" << (baby_track.baby != nullptr ? 1 : 0)
+                << " dets=" << coral.detection_count
+                << " score=" << (baby_track.baby != nullptr ? baby_track.baby->score : 0.0f)
+                << " pan_err=" << baby_track.pan_error
+                << " tilt_err=" << baby_track.tilt_error
+                << " pan_us=" << maestro.target_us[0]
+                << " tilt_us=" << maestro.target_us[1]
+                << " coral_demo=" << (coral.demo_mode ? 1 : 0)
+                << " maestro_demo=" << (maestro.demo_mode ? 1 : 0)
+                << " infer_ms=" << coral.inference_ms
+                << " baby_temp=" << (baby_track.baby_temp_valid ? baby_track.baby_temp_c : 0.0f)
+                << " th_px=" << baby_track.baby_thermal_pixels
+                << '\n';
+            next_track_log_at = now + std::chrono::seconds(1);
         }
         if (cfg.timeseries_enabled && now >= next_vitals_at) {
             VitalsReading reading = hub.sample();

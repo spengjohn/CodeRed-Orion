@@ -25,6 +25,7 @@ struct BabyTrackPipeline {
     const CoralDetection* baby = nullptr;
     float baby_temp_c = 0.0f;
     bool baby_temp_valid = false;
+    int baby_thermal_pixels = 0;
     float pan_error = 0.0f;
     float tilt_error = 0.0f;
 

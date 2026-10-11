@@ -10,6 +10,11 @@ bool ThermalRoiSampler::init() {
 
 void ThermalRoiSampler::shutdown() {}
 
+void ThermalRoiSampler::sync_registration(const CameraFusion& fusion) {
+    thermal_x_shift_px = fusion.thermal_x_shift_px;
+    thermal_y_shift_px = fusion.thermal_y_shift_px;
+}
+
 static bool finite_temp(float value) {
     return std::isfinite(value);
 }
@@ -56,6 +61,23 @@ static bool point_in_box(
     return nx >= box.xmin && nx <= box.xmax && ny >= box.ymin && ny <= box.ymax;
 }
 
+// Same inverse registration as CameraFusion::thermal_pixel_to_ir_norm.
+static void thermal_pixel_to_ir_norm(
+    int tx,
+    int ty,
+    float x_shift_px,
+    float y_shift_px,
+    float* u,
+    float* v
+) {
+    const float th_w = static_cast<float>(MLX90640Driver::width);
+    const float th_h = static_cast<float>(MLX90640Driver::height);
+    const float u_th = 1.0f - (static_cast<float>(tx) + 0.5f) / th_w;
+    const float v_th = (static_cast<float>(ty) + 0.5f) / th_h;
+    *u = u_th + (x_shift_px / th_w);
+    *v = v_th + (y_shift_px / th_h);
+}
+
 ThermalRoiSample ThermalRoiSampler::sample(const MLX90640Driver& thermal) const {
     return sample(thermal, nullptr);
 }
@@ -77,10 +99,11 @@ ThermalRoiSample ThermalRoiSampler::sample(
                 continue;
             }
 
-            const float nx = (static_cast<float>(x) + 0.5f)
-                / static_cast<float>(MLX90640Driver::width);
-            const float ny = (static_cast<float>(y) + 0.5f)
-                / static_cast<float>(MLX90640Driver::height);
+            float nx = 0.0f;
+            float ny = 0.0f;
+            thermal_pixel_to_ir_norm(
+                x, y, thermal_x_shift_px, thermal_y_shift_px, &nx, &ny
+            );
 
             if (baby_box != nullptr && point_in_box(nx, ny, *baby_box)) {
                 inside.push_back(temp);
@@ -102,6 +125,7 @@ ThermalRoiSample ThermalRoiSampler::sample(
         out.ambient_temp_c = 0.0f;
         out.baby_temp_c = 0.0f;
         out.baby_roi_valid = false;
+        out.baby_pixel_count = 0;
         return out;
     }
 
@@ -110,6 +134,7 @@ ThermalRoiSample ThermalRoiSampler::sample(
         out.ambient_temp_c = 0.0f;
     }
 
+    out.baby_pixel_count = static_cast<int>(inside.size());
     if (!inside.empty()) {
         out.baby_temp_c = mean_or_zero(inside);
         out.baby_roi_valid = std::isfinite(out.baby_temp_c);
