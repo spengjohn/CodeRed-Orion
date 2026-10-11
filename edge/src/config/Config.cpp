@@ -86,5 +86,29 @@ Config Config::load_from_env() {
     if (const char* value = std::getenv("TIMESERIES_ENABLED")) {
         cfg.timeseries_enabled = std::string(value) != "0";
     }
+    if (const char* value = std::getenv("STREAM_ID")) {
+        cfg.stream_id = value;
+    }
+    if (const char* value = std::getenv("VIDEO_HOST")) {
+        cfg.video_host = value;
+    }
+    if (const char* value = std::getenv("VIDEO_PORT")) {
+        cfg.video_port = std::atoi(value);
+    }
+    if (const char* value = std::getenv("EDGE_SECRET")) {
+        cfg.edge_secret = value;
+    }
+    if (const char* value = std::getenv("TARGET_FPS")) {
+        cfg.target_fps = std::atoi(value);
+    }
+    if (const char* value = std::getenv("JPEG_QUALITY")) {
+        cfg.jpeg_quality = std::atoi(value);
+    }
+    if (const char* value = std::getenv("UPLINK_ENABLED")) {
+        cfg.uplink_enabled = std::string(value) != "0";
+    }
+    if (const char* value = std::getenv("TRACKING_ENABLED")) {
+        cfg.tracking_enabled = std::string(value) != "0";
+    }
     return cfg;
 }

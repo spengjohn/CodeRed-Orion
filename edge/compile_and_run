@@ -23,20 +23,39 @@ if [[ -z "${TIGERDATA_URL:-}" ]]; then
   exit 1
 fi
 
+LIBCAMERA_FLAGS=()
+if pkg-config --exists libcamera 2>/dev/null; then
+  LIBCAMERA_FLAGS+=(-DHAS_LIBCAMERA)
+  LIBCAMERA_FLAGS+=($(pkg-config --cflags --libs libcamera))
+else
+  echo "warning: libcamera not found; OV5647 will use demo mode" >&2
+fi
+
 g++ -std=c++17 \
   -Isrc -Isrc/hardware -Isrc/hardware/mlx90640 \
   src/main.cpp \
   src/config/Config.cpp \
   src/hardware/ADS1115Driver.cpp \
+  src/hardware/CoralDriver.cpp \
+  src/hardware/MaestroDriver.cpp \
   src/hardware/MLX90640Driver.cpp \
+  src/hardware/OV5647.cpp \
+  src/hardware/TfLunaDriver.cpp \
   src/hardware/mlx90640/MLX90640_API.cpp \
   src/hardware/mlx90640/MLX90640_LINUX_I2C_Driver.cpp \
   src/net/TimeseriesClient.cpp \
+  src/net/UplinkClient.cpp \
+  src/pipeline/BabyTrackPipeline.cpp \
+  src/pipeline/IrStreamPipeline.cpp \
+  src/util/Base64.cpp \
+  src/vision/BreathMonitor.cpp \
+  src/vision/CameraFusion.cpp \
   src/vision/ThermalRoiSampler.cpp \
   src/vitals/PressurePlate.cpp \
   src/vitals/VitalsHub.cpp \
   -o edge \
   $(pkg-config --cflags --libs libpq) \
+  "${LIBCAMERA_FLAGS[@]}" \
   -lpthread \
   -lm
 
