@@ -113,19 +113,82 @@ def _handle_edge_client(conn: socket.socket, addr: Tuple[str, int]) -> None:
                             return
                         continue
 
-                    # Forward video frames to frontend clients (rate-limited to ~10-12 FPS)
+                    # Parse JSON payload
+                    try:
+                        parsed = json.loads(line)
+                    except json.JSONDecodeError:
+                        logger.debug("[Video Relay] Non-JSON payload discarded from %s", addr)
+                        continue
+
+                    if not isinstance(parsed, dict):
+                        logger.debug("[Video Relay] Non-dict payload ignored.")
+                        continue
+
+                    # ── Emergency Packet Handler (Multiplexed on video TCP connection) ──
+                    if parsed.get("event") == "emergency":
+                        try:
+                            snapshot_len = max(0, int(parsed.get("snapshot_len", 0)))
+                        except (ValueError, TypeError):
+                            snapshot_len = 0
+
+                        if snapshot_len > MAX_BUFFER_BYTES:
+                            logger.warning(
+                                "[Video Relay] Snapshot length %d exceeds max buffer. Skipping snapshot.",
+                                snapshot_len,
+                            )
+                            snapshot_len = 0
+
+                        # Read exactly snapshot_len binary bytes from buffer / socket
+                        while len(buffer) < snapshot_len:
+                            more = conn.recv(16384)
+                            if not more:
+                                break
+                            buffer.extend(more)
+
+                        snapshot_bytes = bytes(buffer[:snapshot_len])
+                        del buffer[:snapshot_len]
+
+                        # Safe parsing of timestamp & details
+                        ts_raw = parsed.get("timestamp")
+                        try:
+                            timestamp = int(float(ts_raw)) if ts_raw is not None else int(time.time())
+                        except (ValueError, TypeError):
+                            timestamp = int(time.time())
+
+                        details = parsed.get("details")
+                        if not isinstance(details, dict):
+                            details = {}
+
+                        emergency_type = str(parsed.get("emergency_type") or "UNKNOWN")
+
+                        logger.info(
+                            "[Video Relay] 🚨 Emergency received on video stream: type=%s snapshot=%d bytes",
+                            emergency_type,
+                            len(snapshot_bytes),
+                        )
+
+                        from app.alerts.dispatcher import handle_emergency
+                        handle_emergency(
+                            emergency_type=emergency_type,
+                            timestamp=timestamp,
+                            details=details,
+                            snapshot_bytes=snapshot_bytes,
+                        )
+                        # Immediately continue so next video frames stream uninterrupted
+                        continue
+
+                    # ── Normal Video Frame (continuous streaming, rate-limited to ~10-12 FPS) ──
                     if streaming_active:
                         now = time.time()
                         if now - last_emit_time >= MIN_FRAME_INTERVAL:
                             last_emit_time = now
-                            try:
-                                frame_data = json.loads(line)
-                                if isinstance(frame_data, dict):
-                                    socketio.emit("video_frame", frame_data)
-                                else:
-                                    logger.debug("[Video Relay] Non-dictionary frame payload ignored.")
-                            except json.JSONDecodeError:
-                                logger.debug("[Video Relay] Incomplete or invalid JSON frame discarded.")
+                            from app.data.format import to_video_frame
+                            frame_payload = to_video_frame(
+                                unix_time=parsed.get("ts", int(now)),
+                                frame_str=parsed.get("frame", ""),
+                                frame_id=parsed.get("frame_id") or parsed.get("frameId", 0),
+                            )
+                            socketio.emit("video_frame", frame_payload)
 
             except socket.timeout:
                 logger.warning("[Video Relay] Connection timed out for %s", addr)

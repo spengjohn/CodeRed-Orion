@@ -2,6 +2,11 @@ import os
 import logging
 from flask import Flask, jsonify
 from flask_cors import CORS
+from pathlib import Path
+from dotenv import load_dotenv
+
+# Explicitly load backend/.env so config is available regardless of current working directory
+load_dotenv(Path(__file__).resolve().parent.parent / ".env")
 
 # Set up basic logging so auth module messages are visible
 logging.basicConfig(level=logging.INFO)
@@ -21,6 +26,9 @@ def create_app():
 
     from app.api.video import bp as video_bp
     app.register_blueprint(video_bp)
+
+    from app.api.alert_routes import bp as alert_bp
+    app.register_blueprint(alert_bp)
 
     # Log Auth0 config at startup (no secrets printed).
     from app.auth.auth import auth0_config_summary

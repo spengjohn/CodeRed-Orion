@@ -26,3 +26,57 @@ def to_reading(unix_time, baby_weight, ambient_temp, baby_temp, breaths_per_minu
         "breathsPerMin": _two_dp(breaths_per_minute),
         "isMoving": bool(is_moving),
     }
+
+
+def to_alert(emergency_type, unix_time, details, snapshot_bytes_or_str):
+    """
+    Format an emergency alert into a JSON-ready dict for React frontends.
+
+    Image is provided as a standard Data URL (RFC 2397) so React components
+    can render directly via `<img src={alert.image} />` without any decoding.
+    """
+    if isinstance(snapshot_bytes_or_str, (bytes, bytearray)):
+        import base64
+        b64 = base64.b64encode(snapshot_bytes_or_str).decode("ascii")
+        img_url = f"data:image/jpeg;base64,{b64}" if b64 else ""
+    elif isinstance(snapshot_bytes_or_str, str):
+        if snapshot_bytes_or_str and not snapshot_bytes_or_str.startswith("data:"):
+            img_url = f"data:image/jpeg;base64,{snapshot_bytes_or_str}"
+        else:
+            img_url = snapshot_bytes_or_str
+    else:
+        img_url = ""
+
+    t_val = int(unix_time) if unix_time else 0
+    e_type = str(emergency_type or "UNKNOWN")
+
+    return {
+        "id": f"alert-{t_val}",
+        "ts": t_val,
+        "type": e_type,
+        "emergencyType": e_type,
+        "image": img_url,
+        "snapshot": img_url,
+        "details": details if isinstance(details, dict) else {},
+    }
+
+
+def to_video_frame(unix_time, frame_str, frame_id=0):
+    """
+    Format a video livestream frame into a JSON-ready dict for React frontends.
+    """
+    if isinstance(frame_str, (bytes, bytearray)):
+        import base64
+        b64 = base64.b64encode(frame_str).decode("ascii")
+        img_url = f"data:image/jpeg;base64,{b64}"
+    elif isinstance(frame_str, str):
+        img_url = frame_str if frame_str.startswith("data:") else f"data:image/jpeg;base64,{frame_str}"
+    else:
+        img_url = ""
+
+    return {
+        "ts": int(unix_time) if unix_time else 0,
+        "frame": img_url,
+        "frameId": int(frame_id or 0),
+    }
+
