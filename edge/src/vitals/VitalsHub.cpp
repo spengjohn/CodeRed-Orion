@@ -6,6 +6,9 @@
 namespace {
 
 float round2(float value) {
+    if (!std::isfinite(value)) {
+        return 0.0f;
+    }
     return std::round(value * 100.0f) / 100.0f;
 }
 
